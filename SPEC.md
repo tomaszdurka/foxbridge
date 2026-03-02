@@ -2,7 +2,7 @@
 
 ## Overview
 
-A TypeScript + Express API server that enables programmatic execution of Claude Code CLI commands with structured JSON output. The API supports both synchronous (single response) and streaming (JSONL) modes.
+A TypeScript + Express API server that enables programmatic execution of Claude CLI commands with structured JSON output. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
 
 ## Core Requirements
 
@@ -10,14 +10,14 @@ A TypeScript + Express API server that enables programmatic execution of Claude 
 - **Runtime**: Node.js
 - **Language**: TypeScript
 - **Framework**: Express.js
-- **CLI Integration**: Claude Code (non-interactive mode)
+- **CLI Integration**: Claude CLI (via `claude` command)
 
 ### 2. Key Features
-- Execute Claude Code commands programmatically
-- Support for working directory specification
-- Random working directory generation as fallback
-- Two response modes: synchronous JSON and streaming JSONL
-- Structured schema output from Claude Code
+- Execute Claude CLI commands programmatically
+- Automatic workspace creation for each run
+- Two response modes: buffered JSON and streaming JSONL (based on `Accept` header)
+- Structured schema output validation
+- Workspace isolation with unique IDs
 
 ## API Specification
 
@@ -25,49 +25,54 @@ A TypeScript + Express API server that enables programmatic execution of Claude 
 
 #### Request Headers
 - `Content-Type: application/json`
+- `Accept: application/json` (default, buffered) or `application/x-ndjson` (streaming)
 
 #### Request Body Schema
 
 ```json
 {
-  "prompt": "string",           // Claude Code prompt
-  "workingDirectory": "string?", // Optional: path to working directory
-  "stream": "boolean",           // Whether to stream response (default: false)
+  "prompt": "string",           // Required: Claude CLI prompt
   "schema": "object?"            // Optional: JSON schema for structured output
 }
 ```
 
+**Notes:**
+- No `workingDirectory` field — each run automatically creates a workspace under `./workspaces/{uuid}/`
+- No `stream` field — streaming is determined by the `Accept` header
+- Future enhancement: allow reusing a workspace by providing a `workspaceId`
+
 #### Example Requests
 
-**Synchronous Mode (with schema):**
-```json
-{
-  "prompt": "Analyze the main.ts file and return a summary",
-  "workingDirectory": "/path/to/project",
-  "stream": false,
-  "schema": {
-    "type": "object",
-    "properties": {
-      "summary": { "type": "string" },
-      "issues": { "type": "array", "items": { "type": "string" } },
-      "complexity": { "type": "number" }
-    },
-    "required": ["summary"]
-  }
-}
+**Buffered Mode (with schema):**
+```bash
+curl -X POST http://localhost:3100/runs/claude \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "prompt": "What is 2+2?",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "answer": { "type": "number" }
+      },
+      "required": ["answer"]
+    }
+  }'
 ```
 
 **Streaming Mode (no schema):**
-```json
-{
-  "prompt": "Refactor the authentication module",
-  "stream": true
-}
+```bash
+curl -X POST http://localhost:3100/runs/claude \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/x-ndjson" \
+  -d '{
+    "prompt": "Explain how TypeScript generics work"
+  }'
 ```
 
 ### Response Modes
 
-#### Non-Streaming (`stream: false`)
+#### Buffered Mode (`Accept: application/json`)
 
 **Response Headers:**
 - `Content-Type: application/json`
@@ -75,148 +80,170 @@ A TypeScript + Express API server that enables programmatic execution of Claude 
 **Response Body Schema:**
 ```json
 {
-  "success": "boolean",
-  "executionId": "string",        // Unique execution ID
-  "workingDirectory": "string",   // Actual working directory used
-  "startTime": "string",          // ISO timestamp
-  "endTime": "string",            // ISO timestamp
-  "duration": "number",           // Milliseconds
-  "result": {
-    "output": "object | string",  // Structured output from Claude Code
-    "exitCode": "number"
-  },
-  "error": {                      // Only present if success: false
-    "message": "string",
-    "code": "string",
-    "details": "object?"
+  "workspaceId": "string",      // UUID of the workspace directory
+  "runId": "string",            // UUID of this execution
+  "status": "success|failure",  // Execution status
+  "response": "object | string" // Structured output (if schema) or raw response
+}
+```
+
+**Example Success Response:**
+```json
+{
+  "workspaceId": "abc-123-def-456",
+  "runId": "xyz-789-uvw-012",
+  "status": "success",
+  "response": {
+    "answer": 4
   }
 }
 ```
 
-#### Streaming (`stream: true`)
+**Example Failure Response:**
+```json
+{
+  "workspaceId": "abc-123-def-456",
+  "runId": "xyz-789-uvw-012",
+  "status": "failure",
+  "response": "Error executing command: ..."
+}
+```
+
+#### Streaming Mode (`Accept: application/x-ndjson`)
 
 **Response Headers:**
 - `Content-Type: application/x-ndjson` (JSONL)
-- `Transfer-Encoding: chunked`
+- `Cache-Control: no-cache`
 
 **Response Body (JSONL Stream):**
 
 Each line is a JSON object representing an event:
 
 ```jsonl
-{"type":"start","executionId":"uuid","workingDirectory":"/path","timestamp":"2026-03-02T..."}
-{"type":"progress","content":"Starting analysis...","timestamp":"2026-03-02T..."}
-{"type":"progress","content":"Reading files...","timestamp":"2026-03-02T..."}
-{"type":"result","output":{"summary":"..."},"timestamp":"2026-03-02T..."}
-{"type":"complete","duration":5432,"exitCode":0,"timestamp":"2026-03-02T..."}
+{"type":"start","workspaceId":"abc-123","runId":"xyz-789","timestamp":"2026-03-02T10:30:00.000Z"}
+{"type":"progress","content":"Analyzing request...","timestamp":"2026-03-02T10:30:01.000Z"}
+{"type":"progress","content":"Generating response...","timestamp":"2026-03-02T10:30:02.000Z"}
+{"type":"complete","workspaceId":"abc-123","runId":"xyz-789","status":"success","timestamp":"2026-03-02T10:30:05.000Z"}
 ```
 
-**Error event:**
-```jsonl
-{"type":"error","message":"Command failed","code":"EXECUTION_ERROR","timestamp":"2026-03-02T..."}
-```
+**Event Types:**
 
-## Working Directory Management
+- **start**: Initial event with `workspaceId`, `runId`, and `timestamp`
+- **progress**: Content update from Claude CLI with `content` and `timestamp`
+- **complete**: Final event with `workspaceId`, `runId`, `status` ("success" or "failure"), and `timestamp`
+- **error**: Error event with `message`, `code`, and `timestamp` (for system errors)
+
+## Workspace Management
 
 ### Strategy
 
-1. **Explicit Path Provided**: Use the provided `workingDirectory` path
-   - Validate path exists and is accessible
-   - Return error if invalid
-
-2. **No Path Provided**: Generate random working directory
-   - Create temporary directory: `/tmp/claude-exec-{UUID}`
-   - Initialize as empty workspace
-   - Clean up after execution (configurable retention)
+Every run creates a new workspace:
+- Directory: `./workspaces/{workspaceId}/` where `workspaceId` is a UUID
+- The workspace is created before executing the command
+- The `workspaceId` is returned in the response
+- Future enhancement: allow clients to provide a `workspaceId` to reuse an existing workspace
 
 ### Directory Structure
 ```
-/tmp/claude-exec-{UUID}/
-├── .claude/          # Claude Code configuration (if needed)
-└── workspace/        # Working files
+local-model-api/
+├── workspaces/
+│   ├── abc-123-def-456/       # Workspace for run 1
+│   └── xyz-789-uvw-012/       # Workspace for run 2
 ```
+
+**Note:** The `workspaces/` directory is gitignored.
 
 ## Service Architecture
 
 ### Claude Executor Service
 
-A service class responsible for executing Claude Code commands with specified options.
+A service class responsible for spawning the Claude CLI process with the correct flags.
 
 #### Interface
 
 ```typescript
 interface ClaudeExecutorOptions {
-  command: string;              // The prompt/command to execute
-  workingDirectory: string;     // Directory to execute in
-  stream: boolean;              // Whether to stream the response
+  prompt: string;               // The prompt to execute
+  workingDirectory: string;     // Resolved workspace directory path
   schema?: object;              // Optional JSON schema for structured output
-}
-
-interface ClaudeExecutorResult {
-  output: any;                  // Parsed JSON output from Claude
-  exitCode: number;             // Process exit code
-  stderr?: string;              // Error output if any
 }
 ```
 
-#### Execution Behavior
+#### Method
 
-**Non-Streaming Mode (`stream: false`):**
-- Execute Claude Code command
-- Wait for completion
-- Parse and return full JSON output
-- Return as `ClaudeExecutorResult`
+**`execute(options: ClaudeExecutorOptions): ChildProcess`**
 
-**Streaming Mode (`stream: true`):**
-- Execute Claude Code command
-- Stream output line-by-line as JSONL
-- Each line is a separate JSON event
-- Close stream on completion
+- Spawns the `claude` CLI with the following flags:
+  - `-p` — Non-interactive / print mode
+  - `--output-format stream-json` — Always use streaming JSON output
+  - `--json-schema '<json>'` — Optional, for structured output validation
+- Sets `cwd` to `options.workingDirectory`
+- Strips `CLAUDE_CODE` from environment to avoid nesting issues
+- Returns the `ChildProcess` for the route handler to manage
 
 #### Command Construction
 
-The service constructs Claude Code commands with:
-- Non-interactive mode (always)
-- JSON output format (always)
-- Schema validation (if schema provided)
-- Working directory context
-
 Example command:
 ```bash
-cd <workingDirectory> && \
-  claude-code \
-    --non-interactive \
-    --json \
-    [--schema '<json-schema>'] \
-    "<user-command>"
+claude -p "What is 2+2?" --output-format stream-json
 ```
 
-#### Output Handling
+With schema:
+```bash
+claude -p "What is 2+2?" --output-format stream-json --json-schema '{"type":"object","properties":{"answer":{"type":"number"}},"required":["answer"]}'
+```
 
-- **stdout**: Capture for JSON output
-- **stderr**: Capture for errors/warnings
-- **Exit codes**:
-  - `0` = Success
-  - `1` = Command failed
-  - `2` = Invalid arguments
-  - Other codes = System errors
+**Notes:**
+- The executor always uses `--output-format stream-json`
+- The route handler decides whether to proxy the stream or buffer it
+- The command is executed with `{ cwd: workingDirectory }`
 
 ## Error Handling
 
+### Validation Errors (400)
+
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid working directory path",
-    "details": {
-      "field": "workingDirectory",
-      "value": "/invalid/path",
-      "reason": "Path does not exist"
-    }
-  },
-  "timestamp": "2026-03-02T10:30:00.000Z"
+  "error": "Validation failed",
+  "details": "prompt is required"
 }
 ```
 
+### System Errors (500)
 
+In buffered mode:
+```json
+{
+  "workspaceId": "abc-123",
+  "runId": "xyz-789",
+  "status": "failure",
+  "response": "Failed to spawn Claude CLI: ..."
+}
+```
+
+In streaming mode:
+```jsonl
+{"type":"error","message":"Failed to spawn Claude CLI","code":"SPAWN_ERROR","timestamp":"2026-03-02T10:30:00.000Z"}
+```
+
+## Implementation Notes
+
+### Route Handler Logic
+
+1. **Validate** request body (`prompt` required, must be string)
+2. **Generate IDs**: Create `workspaceId` (UUID) and `runId` (UUID)
+3. **Create workspace**: Create directory at `./workspaces/{workspaceId}/`
+4. **Determine mode**: Check `Accept` header
+   - `application/x-ndjson` → streaming mode
+   - Anything else → buffered mode
+5. **Spawn process**: Call `executor.execute()` to get `ChildProcess`
+6. **Handle output**:
+   - **Streaming**: Proxy stdout as JSONL with start/progress/complete events
+   - **Buffered**: Collect stdout, parse final result, return single JSON response
+7. **Error handling**: Handle spawn errors, process errors, and client disconnects
+
+### Process Management
+
+- **Client disconnect**: Kill the `claude` process with `SIGTERM`
+- **Process errors**: Capture and return as error responses
+- **Exit codes**: Determine `status` based on exit code (0 = success, non-zero = failure)
