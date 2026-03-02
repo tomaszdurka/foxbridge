@@ -13,6 +13,17 @@
 - 🔁 Workspace reuse for multi-run continuity
 - 📊 Built-in state tracking across runs
 
+## ⚠️ Disclaimer
+
+**USE AT YOUR OWN RISK.** FoxBridge executes Claude CLI commands programmatically and can run arbitrary code within isolated workspaces.
+
+- **Security**: Exposing this API to untrusted networks or users can pose significant security risks
+- **Responsibility**: You are solely responsible for securing, monitoring, and managing any deployment of FoxBridge
+- **No Warranty**: This software is provided "as is" without warranty of any kind
+- **Production Use**: Implement proper authentication, rate limiting, input validation, and network security before any production deployment
+
+By using FoxBridge, you acknowledge and accept these risks and responsibilities.
+
 ## Quick Start
 
 ```bash
