@@ -13,7 +13,7 @@ export interface WorkspaceContext {
 @Injectable()
 export class RunsService {
   private readonly logger = new Logger(RunsService.name);
-  private readonly workspacesDir = path.join(process.cwd(), 'workspaces');
+  private readonly workspacesDir = process.env.WORKSPACES_DIR || path.join(process.cwd(), 'workspaces');
 
   /**
    * Create a new workspace directory for execution or use existing one

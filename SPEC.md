@@ -118,6 +118,24 @@ Each line is a JSON object representing an event:
 
 ## Workspace Management
 
+### Configuration
+
+The workspaces directory location can be configured via environment variable:
+
+**Environment Variable:**
+- `WORKSPACES_DIR` - Custom path for workspaces directory (optional)
+- Default: `./workspaces` (relative to project root)
+
+**Example:**
+```bash
+# Use custom directory
+export WORKSPACES_DIR=/var/data/claude-workspaces
+npm run start:dev
+
+# Or with pm2
+WORKSPACES_DIR=/var/data/claude-workspaces pm2 start "npm run start:dev" --name local-model-api
+```
+
 ### Strategy
 
 Workspaces can be created new or reused:
