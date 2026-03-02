@@ -3,15 +3,16 @@ import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
+import {PersistenceService} from "../database/persistence.service";
+import {Workspace} from "../database/entities";
 
-export interface WorkspaceContext {
-  workspaceId: string;
-  runId: string;
-  workingDir: string;
-}
 
 @Injectable()
 export class RunsService {
+
+  constructor(private readonly persistence: PersistenceService) {
+  }
+
   private readonly logger = new Logger(RunsService.name);
   private readonly workspacesDir = process.env.WORKSPACES_DIR || path.join(process.cwd(), 'workspaces');
 
@@ -20,10 +21,8 @@ export class RunsService {
    * @param existingWorkspaceId - Optional existing workspace ID to reuse
    * @throws Error if existingWorkspaceId is provided but doesn't exist
    */
-  ensureWorkspace(existingWorkspaceId?: string): WorkspaceContext {
-    console.log({workspacesDir: this.workspacesDir})
+  async ensureWorkspace(existingWorkspaceId?: string): Promise<Pick<Workspace, 'workspaceId' | 'workingDir'>> {
     const workspaceId = existingWorkspaceId || uuidv4();
-    const runId = uuidv4();
     const workingDir = path.join(this.workspacesDir, workspaceId);
 
     if (existingWorkspaceId) {
@@ -34,9 +33,25 @@ export class RunsService {
     } else {
       // Create new workspace
       fs.mkdirSync(workingDir, { recursive: true });
+      await this.persistence.createWorkspace({
+          workspaceId,
+          workingDir,
+      });
     }
+    return { workspaceId, workingDir };
+  }
 
-    return { workspaceId, runId, workingDir };
+  async createRun({workspaceId: optionalWorkspaceId, prompt, outputSchema}: {
+    workspaceId?: string;
+    prompt: string;
+    outputSchema?: object;
+  }) {
+    const { workspaceId, workingDir } = await this.ensureWorkspace(optionalWorkspaceId);
+    return this.persistence.createRun({
+      workspaceId,
+      prompt,
+      outputSchema
+    })
   }
 
   /**

@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { RunsModule } from './runs/runs.module';
+import { WorkspacesModule } from './workspaces/workspaces.module';
+import { PersistenceModule } from './database/persistence.module';
+import config from './mikro-orm.config';
 
 @Module({
   imports: [
@@ -8,7 +12,10 @@ import { RunsModule } from './runs/runs.module';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
+    MikroOrmModule.forRoot(config),
+    PersistenceModule,
     RunsModule,
+    WorkspacesModule,
   ],
 })
 export class AppModule {}
