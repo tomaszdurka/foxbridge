@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {BadRequestException, Injectable, Logger} from '@nestjs/common';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
@@ -20,18 +20,15 @@ export class RunsService {
    * @param existingWorkspaceId - Optional existing workspace ID to reuse
    * @throws Error if existingWorkspaceId is provided but doesn't exist
    */
-  createWorkspace(existingWorkspaceId?: string): WorkspaceContext {
+  ensureWorkspace(existingWorkspaceId?: string): WorkspaceContext {
     const workspaceId = existingWorkspaceId || uuidv4();
     const runId = uuidv4();
     const workingDir = path.join(this.workspacesDir, workspaceId);
 
     if (existingWorkspaceId) {
       // Validate that the workspace exists
-      if (!fs.existsSync(workingDir)) {
-        throw new Error(`Workspace ${existingWorkspaceId} does not exist`);
-      }
-      if (!fs.statSync(workingDir).isDirectory()) {
-        throw new Error(`Workspace ${existingWorkspaceId} is not a directory`);
+      if (!fs.existsSync(workingDir) || !fs.statSync(workingDir).isDirectory()) {
+        throw new BadRequestException(`Workspace ${existingWorkspaceId} is not a directory`);
       }
     } else {
       // Create new workspace
@@ -62,6 +59,7 @@ export class RunsService {
       let stderrBuffer = '';
 
       const handleOutput = (data: string, buffer: string) => {
+        this.logger.debug(data)
         buffer += data;
         const lines = buffer.split('\n');
         const remaining = lines.pop() || '';

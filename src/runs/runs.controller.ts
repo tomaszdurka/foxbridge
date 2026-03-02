@@ -20,15 +20,7 @@ export class RunsController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    let workspaceContext;
-    try {
-      workspaceContext = this.runs.createWorkspace(dto.workspaceId);
-    } catch (error: any) {
-      throw new BadRequestException(error.message);
-    }
-
-    const { workspaceId, runId, workingDir } = workspaceContext;
-
+    const { workspaceId, runId, workingDir } = this.runs.ensureWorkspace(dto.workspaceId);
     const isStreaming = accept?.includes('application/x-ndjson');
     let clientDisconnected = false;
     const writeEvent = (e: any) => {
