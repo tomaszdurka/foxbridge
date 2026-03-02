@@ -3,20 +3,22 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module';
-import * as express from 'express';
+import { Request, Response } from 'express';
+import express from 'express';
 
 const server = express();
-let app: any;
+let cachedApp: any;
 
 async function bootstrap() {
-  if (!app) {
-    app = await NestFactory.create(
+  if (!cachedApp) {
+    const expressAdapter = new ExpressAdapter(server);
+    cachedApp = await NestFactory.create(
       AppModule,
-      new ExpressAdapter(server),
+      expressAdapter,
       { logger: ['error', 'warn', 'log'] }
     );
 
-    app.useGlobalPipes(
+    cachedApp.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
@@ -24,13 +26,13 @@ async function bootstrap() {
       }),
     );
 
-    app.setGlobalPrefix('api');
-    await app.init();
+    cachedApp.setGlobalPrefix('api');
+    await cachedApp.init();
   }
   return server;
 }
 
-export default async (req: any, res: any) => {
-  const app = await bootstrap();
-  return app(req, res);
+export default async (req: Request, res: Response) => {
+  const serverInstance = await bootstrap();
+  return serverInstance(req, res);
 };
