@@ -2,13 +2,13 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { AppModule } from '../dist/app.module';
-import { Request, Response } from 'express';
-import * as express from 'express';
+import { AppModule } from '../src/app.module';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import express from 'express';
 
 let cachedServer: express.Application | null = null;
 
-async function bootstrap() {
+async function bootstrap(): Promise<express.Application> {
   if (!cachedServer) {
     const expressApp = express();
     const app = await NestFactory.create(
@@ -32,12 +32,12 @@ async function bootstrap() {
   return cachedServer;
 }
 
-export default async (req: Request, res: Response) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const server = await bootstrap();
-    server(req, res);
+    server(req as any, res as any);
   } catch (error) {
     console.error('Function invocation error:', error);
     res.status(500).json({ error: 'Internal server error', message: String(error) });
   }
-};
+}

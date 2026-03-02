@@ -32,6 +32,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.16",
     "@types/uuid": "^9.0.7",
+    "@vercel/node": "^5.6.9",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
