@@ -1,0 +1,5 @@
+workspaces/
+.idea/
+*.log
+.env
+.claude/
