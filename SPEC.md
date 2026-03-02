@@ -2,14 +2,14 @@
 
 ## Overview
 
-A TypeScript + Express API server that enables programmatic execution of Claude CLI commands with structured JSON output. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
+A TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
 
 ## Core Requirements
 
 ### 1. Technology Stack
 - **Runtime**: Node.js
 - **Language**: TypeScript
-- **Framework**: Express.js
+- **Framework**: NestJS
 - **CLI Integration**: Claude CLI (via `claude` command)
 
 ### 2. Key Features
@@ -77,35 +77,19 @@ curl -X POST http://localhost:3100/runs/claude \
 **Response Headers:**
 - `Content-Type: application/json`
 
-**Response Body Schema:**
-```json
-{
-  "workspaceId": "string",      // UUID of the workspace directory
-  "runId": "string",            // UUID of this execution
-  "status": "success|failure",  // Execution status
-  "response": "object | string" // Structured output (if schema) or raw response
-}
-```
+**Response Body:**
+The response returns the result object from Claude CLI's `type: "result"` event, along with workspace metadata.
 
 **Example Success Response:**
 ```json
 {
   "workspaceId": "abc-123-def-456",
   "runId": "xyz-789-uvw-012",
-  "status": "success",
-  "response": {
+  "timestamp": "2026-03-02T10:30:05.000Z",
+  "type": "result",
+  "result": {
     "answer": 4
   }
-}
-```
-
-**Example Failure Response:**
-```json
-{
-  "workspaceId": "abc-123-def-456",
-  "runId": "xyz-789-uvw-012",
-  "status": "failure",
-  "response": "Error executing command: ..."
 }
 ```
 
@@ -121,17 +105,16 @@ Each line is a JSON object representing an event:
 
 ```jsonl
 {"type":"start","workspaceId":"abc-123","runId":"xyz-789","timestamp":"2026-03-02T10:30:00.000Z"}
-{"type":"progress","content":"Analyzing request...","timestamp":"2026-03-02T10:30:01.000Z"}
-{"type":"progress","content":"Generating response...","timestamp":"2026-03-02T10:30:02.000Z"}
-{"type":"complete","workspaceId":"abc-123","runId":"xyz-789","status":"success","timestamp":"2026-03-02T10:30:05.000Z"}
+{"type":"thinking","content":"...","timestamp":"2026-03-02T10:30:01.000Z","workspaceId":"abc-123","runId":"xyz-789"}
+{"type":"text","content":"The answer is 4","timestamp":"2026-03-02T10:30:02.000Z","workspaceId":"abc-123","runId":"xyz-789"}
+{"type":"result","result":{"answer":4},"timestamp":"2026-03-02T10:30:05.000Z","workspaceId":"abc-123","runId":"xyz-789"}
 ```
 
 **Event Types:**
 
-- **start**: Initial event with `workspaceId`, `runId`, and `timestamp`
-- **progress**: Content update from Claude CLI with `content` and `timestamp`
-- **complete**: Final event with `workspaceId`, `runId`, `status` ("success" or "failure"), and `timestamp`
-- **error**: Error event with `message`, `code`, and `timestamp` (for system errors)
+- **start**: Initial event sent by the controller with `workspaceId`, `runId`, and `timestamp`
+- **All Claude CLI events**: Forwarded directly from Claude CLI's `--output-format stream-json`, with added `workspaceId`, `runId`, and `timestamp` fields
+  - Common types: `thinking`, `text`, `result`, `result_success`, `tool_use`, etc.
 
 ## Workspace Management
 
@@ -139,8 +122,8 @@ Each line is a JSON object representing an event:
 
 Every run creates a new workspace:
 - Directory: `./workspaces/{workspaceId}/` where `workspaceId` is a UUID
-- The workspace is created before executing the command
-- The `workspaceId` is returned in the response
+- The workspace is created before executing the command via `RunsService.createWorkspace()`
+- The `workspaceId` and `runId` are returned in the response
 - Future enhancement: allow clients to provide a `workspaceId` to reuse an existing workspace
 
 ### Directory Structure
@@ -153,97 +136,152 @@ local-model-api/
 
 **Note:** The `workspaces/` directory is gitignored.
 
-## Service Architecture
+## Architecture
 
-### Claude Executor Service
+### Module Structure
 
-A service class responsible for spawning the Claude CLI process with the correct flags.
-
-#### Interface
-
-```typescript
-interface ClaudeExecutorOptions {
-  prompt: string;               // The prompt to execute
-  workingDirectory: string;     // Resolved workspace directory path
-  schema?: object;              // Optional JSON schema for structured output
-}
+```
+src/
+├── main.ts                    # Bootstrap NestJS application
+├── app.module.ts              # Root module (imports RunsModule)
+├── types.ts                   # Shared types (StreamEvent)
+├── claude/
+│   ├── claude.module.ts       # Claude module (exports ClaudeService)
+│   └── claude.service.ts      # Claude CLI execution logic
+└── runs/
+    ├── runs.module.ts         # Runs module (exports RunsService)
+    ├── runs.controller.ts     # HTTP endpoint handler
+    ├── runs.service.ts        # Workspace & JSON stream utilities
+    └── dto/
+        └── run.dto.ts         # Request validation DTO
 ```
 
-#### Method
+### Service Responsibilities
 
-**`execute(options: ClaudeExecutorOptions): ChildProcess`**
+#### RunsService
 
-- Spawns the `claude` CLI with the following flags:
-  - `-p` — Non-interactive / print mode
-  - `--output-format stream-json` — Always use streaming JSON output
-  - `--json-schema '<json>'` — Optional, for structured output validation
-- Sets `cwd` to `options.workingDirectory`
-- Strips `CLAUDE_CODE` from environment to avoid nesting issues
-- Returns the `ChildProcess` for the route handler to manage
+**Purpose:** Provides reusable utilities for workspace management and JSON stream processing.
 
-#### Command Construction
+**Methods:**
+
+1. **`createWorkspace(): WorkspaceContext`**
+   - Creates a new workspace directory under `./workspaces/{uuid}/`
+   - Returns `{ workspaceId, runId, workingDir }`
+
+2. **`executeJsonStream(options): Promise<number | null>`**
+   - Generic utility for executing any command that outputs newline-delimited JSON
+   - Handles buffering of stdout/stderr to prevent split JSON lines
+   - Parses each complete line and calls `onLine` callback
+   - Returns the process exit code
+   - Options:
+     - `command`: Command to execute
+     - `args`: Command arguments
+     - `cwd`: Working directory
+     - `env`: Environment variables (optional)
+     - `onLine`: Callback for each parsed JSON event (optional)
+
+**Key Features:**
+- Separate buffers for stdout and stderr to prevent data corruption
+- Buffers incomplete lines until newline is received
+- Error handling for malformed JSON
+
+#### ClaudeService
+
+**Purpose:** Handles Claude CLI-specific logic.
+
+**Methods:**
+
+**`run(options): Promise<unknown>`**
+- Builds Claude CLI arguments
+- Sets permission mode (`bypassPermissions`)
+- Strips `CLAUDE_CODE` and `CLAUDECODE` from environment
+- Uses `RunsService.executeJsonStream()` to run the command
+- Finds and returns the `type: "result"` or `type: "result_success"` event
+- Options:
+  - `prompt`: The prompt to execute
+  - `workingDir`: Workspace directory path
+  - `outputSchema`: Optional JSON schema for structured output
+  - `onOutput`: Callback for streaming events (optional)
+
+**Command Construction:**
 
 Example command:
 ```bash
-claude -p "What is 2+2?" --output-format stream-json
+claude -p "What is 2+2?" --output-format stream-json --verbose --permission-mode bypassPermissions
 ```
 
 With schema:
 ```bash
-claude -p "What is 2+2?" --output-format stream-json --json-schema '{"type":"object","properties":{"answer":{"type":"number"}},"required":["answer"]}'
+claude -p "What is 2+2?" --output-format stream-json --verbose --permission-mode bypassPermissions --json-schema '{"type":"object",...}'
 ```
 
-**Notes:**
-- The executor always uses `--output-format stream-json`
-- The route handler decides whether to proxy the stream or buffer it
-- The command is executed with `{ cwd: workingDirectory }`
+#### RunsController
+
+**Purpose:** Handles HTTP requests and orchestrates the execution flow.
+
+**Flow:**
+
+1. Validate request body via `RunDto` (class-validator)
+2. Create workspace using `RunsService.createWorkspace()`
+3. Determine streaming mode from `Accept` header
+4. Set up response headers and event writer
+5. Execute Claude CLI via `ClaudeService.run()`
+6. Stream or buffer the response
+7. Handle client disconnects
 
 ## Error Handling
 
 ### Validation Errors (400)
 
+NestJS ValidationPipe automatically handles DTO validation:
 ```json
 {
-  "error": "Validation failed",
-  "details": "prompt is required"
+  "statusCode": 400,
+  "message": ["prompt must be a string", "prompt should not be empty"],
+  "error": "Bad Request"
 }
 ```
 
-### System Errors (500)
+### JSON Parsing Errors
 
-In buffered mode:
-```json
-{
-  "workspaceId": "abc-123",
-  "runId": "xyz-789",
-  "status": "failure",
-  "response": "Failed to spawn Claude CLI: ..."
-}
+Malformed JSON lines are logged but don't crash the process:
+```
+[RunsService] Failed to parse JSON: {incomplete json...
 ```
 
-In streaming mode:
-```jsonl
-{"type":"error","message":"Failed to spawn Claude CLI","code":"SPAWN_ERROR","timestamp":"2026-03-02T10:30:00.000Z"}
+### Spawn Errors
+
+If the Claude CLI fails to spawn:
+```json
+{
+  "statusCode": 500,
+  "message": "Failed to spawn claude: command not found"
+}
 ```
 
 ## Implementation Notes
 
-### Route Handler Logic
+### JSON Stream Buffering
 
-1. **Validate** request body (`prompt` required, must be string)
-2. **Generate IDs**: Create `workspaceId` (UUID) and `runId` (UUID)
-3. **Create workspace**: Create directory at `./workspaces/{workspaceId}/`
-4. **Determine mode**: Check `Accept` header
-   - `application/x-ndjson` → streaming mode
-   - Anything else → buffered mode
-5. **Spawn process**: Call `executor.execute()` to get `ChildProcess`
-6. **Handle output**:
-   - **Streaming**: Proxy stdout as JSONL with start/progress/complete events
-   - **Buffered**: Collect stdout, parse final result, return single JSON response
-7. **Error handling**: Handle spawn errors, process errors, and client disconnects
+The `RunsService.executeJsonStream()` method implements robust line buffering:
+
+1. Maintains separate buffers for stdout and stderr
+2. On each data chunk:
+   - Append to buffer
+   - Split by `\n`
+   - Pop the last element (incomplete line) back into buffer
+   - Parse and emit all complete lines
+3. This prevents JSON parsing errors from split chunks
+
+### Module Dependencies
+
+- `RunsModule` and `ClaudeModule` have a circular dependency
+- Resolved using `forwardRef()` in both module imports
+- `ClaudeService` injects `RunsService` to use `executeJsonStream()`
+- `RunsController` injects both `ClaudeService` and `RunsService`
 
 ### Process Management
 
-- **Client disconnect**: Kill the `claude` process with `SIGTERM`
-- **Process errors**: Capture and return as error responses
-- **Exit codes**: Determine `status` based on exit code (0 = success, non-zero = failure)
+- Client disconnects are tracked via `res.on('close', ...)`
+- Stream events only written if client is still connected
+- Process stdin is closed immediately after spawn to prevent hanging

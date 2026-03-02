@@ -16,14 +16,27 @@ export class RunsService {
   private readonly workspacesDir = path.join(process.cwd(), 'workspaces');
 
   /**
-   * Create a new workspace directory for execution
+   * Create a new workspace directory for execution or use existing one
+   * @param existingWorkspaceId - Optional existing workspace ID to reuse
+   * @throws Error if existingWorkspaceId is provided but doesn't exist
    */
-  createWorkspace(): WorkspaceContext {
-    const workspaceId = uuidv4();
+  createWorkspace(existingWorkspaceId?: string): WorkspaceContext {
+    const workspaceId = existingWorkspaceId || uuidv4();
     const runId = uuidv4();
     const workingDir = path.join(this.workspacesDir, workspaceId);
 
-    fs.mkdirSync(workingDir, { recursive: true });
+    if (existingWorkspaceId) {
+      // Validate that the workspace exists
+      if (!fs.existsSync(workingDir)) {
+        throw new Error(`Workspace ${existingWorkspaceId} does not exist`);
+      }
+      if (!fs.statSync(workingDir).isDirectory()) {
+        throw new Error(`Workspace ${existingWorkspaceId} is not a directory`);
+      }
+    } else {
+      // Create new workspace
+      fs.mkdirSync(workingDir, { recursive: true });
+    }
 
     return { workspaceId, runId, workingDir };
   }

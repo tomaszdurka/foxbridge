@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, Headers, Req, Inject } from '@nestjs/common';
+import { Controller, Post, Body, Res, Headers, Req, Inject, BadRequestException } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { RunDto } from './dto/run.dto';
 import { ClaudeService } from '../claude/claude.service';
@@ -20,7 +20,14 @@ export class RunsController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const { workspaceId, runId, workingDir } = this.runs.createWorkspace();
+    let workspaceContext;
+    try {
+      workspaceContext = this.runs.createWorkspace(dto.workspaceId);
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+
+    const { workspaceId, runId, workingDir } = workspaceContext;
 
     const isStreaming = accept?.includes('application/x-ndjson');
     let clientDisconnected = false;
