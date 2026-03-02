@@ -120,21 +120,43 @@ Each line is a JSON object representing an event:
 
 ### Strategy
 
-Every run creates a new workspace:
+Workspaces can be created new or reused:
+
+**New Workspace:**
+- Automatically created if no `workspaceId` is provided
 - Directory: `./workspaces/{workspaceId}/` where `workspaceId` is a UUID
-- The workspace is created before executing the command via `RunsService.createWorkspace()`
+- An initial `CLAUDE.md` file is created to track project state
 - The `workspaceId` and `runId` are returned in the response
-- Future enhancement: allow clients to provide a `workspaceId` to reuse an existing workspace
+
+**Reusing a Workspace:**
+- Provide `workspaceId` in the request body
+- The workspace directory must exist (returns 400 if not)
+- Allows continuity across multiple runs
+- The `CLAUDE.md` file tracks state between runs
 
 ### Directory Structure
 ```
 local-model-api/
 ├── workspaces/
 │   ├── abc-123-def-456/       # Workspace for run 1
+│   │   ├── CLAUDE.md          # Project state tracking
+│   │   └── ...                # Other files created during execution
 │   └── xyz-789-uvw-012/       # Workspace for run 2
+│       ├── CLAUDE.md
+│       └── ...
 ```
 
 **Note:** The `workspaces/` directory is gitignored.
+
+### CLAUDE.md State File
+
+Each workspace contains a `CLAUDE.md` file that tracks:
+- Current task and objectives
+- Completed steps
+- Next steps and pending work
+- Important context for future runs
+
+The prompt automatically includes instructions for Claude to update this file after each run, ensuring continuity when reusing workspaces.
 
 ## Architecture
 
@@ -192,16 +214,30 @@ src/
 **Methods:**
 
 **`run(options): Promise<unknown>`**
+- Enhances the prompt with CLAUDE.md maintenance instructions
 - Builds Claude CLI arguments
 - Sets permission mode (`bypassPermissions`)
 - Strips `CLAUDE_CODE` and `CLAUDECODE` from environment
 - Uses `RunsService.executeJsonStream()` to run the command
 - Finds and returns the `type: "result"` or `type: "result_success"` event
 - Options:
-  - `prompt`: The prompt to execute
+  - `prompt`: The prompt to execute (will be enhanced with CLAUDE.md instructions)
   - `workingDir`: Workspace directory path
   - `outputSchema`: Optional JSON schema for structured output
   - `onOutput`: Callback for streaming events (optional)
+
+**Prompt Enhancement:**
+
+The service automatically appends instructions to every prompt:
+```
+IMPORTANT: After completing the task, update the CLAUDE.md file in the workspace with:
+- Current state of the project
+- What was accomplished in this run
+- Next steps or pending tasks
+- Any important context for future runs
+
+This helps maintain continuity across multiple runs in the same workspace.
+```
 
 **Command Construction:**
 

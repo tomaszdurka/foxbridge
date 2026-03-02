@@ -13,10 +13,21 @@ export class ClaudeService {
     outputSchema?: Record<string, unknown>;
     onOutput?: (line: unknown) => void;
   }): Promise<unknown> {
+    // Enhance prompt with CLAUDE.md maintenance instructions
+    const enhancedPrompt = `${options.prompt}
+
+IMPORTANT: After completing the task, update the CLAUDE.md file in the workspace with:
+- Current state of the project
+- What was accomplished in this run
+- Next steps or pending tasks
+- Any important context for future runs
+
+This helps maintain continuity across multiple runs in the same workspace.`;
+
     const permissionMode = 'bypassPermissions';
     const args = [
       '-p',
-      options.prompt,
+      enhancedPrompt,
       '--output-format',
       'stream-json',
       '--verbose',
