@@ -21,6 +21,7 @@ export class RunsService {
    * @throws Error if existingWorkspaceId is provided but doesn't exist
    */
   ensureWorkspace(existingWorkspaceId?: string): WorkspaceContext {
+    console.log({workspacesDir: this.workspacesDir})
     const workspaceId = existingWorkspaceId || uuidv4();
     const runId = uuidv4();
     const workingDir = path.join(this.workspacesDir, workspaceId);
@@ -33,26 +34,6 @@ export class RunsService {
     } else {
       // Create new workspace
       fs.mkdirSync(workingDir, { recursive: true });
-
-      // Create initial CLAUDE.md file
-      const claudeMdPath = path.join(workingDir, 'CLAUDE.md');
-      const initialContent = `# Project State
-
-This file tracks the current state of the project in this workspace.
-
-## Current Task
-(To be filled in)
-
-## Completed Steps
-- Workspace created
-
-## Next Steps
-(To be filled in)
-
-## Important Context
-(To be filled in)
-`;
-      fs.writeFileSync(claudeMdPath, initialContent, 'utf-8');
     }
 
     return { workspaceId, runId, workingDir };

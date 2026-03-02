@@ -45,6 +45,7 @@ export class RunsController {
     }
     const result = await this.claude.run({
       prompt: dto.prompt,
+      runId,
       workingDir,
       outputSchema: dto.schema,
       onOutput: isStreaming ? writeEvent : undefined,

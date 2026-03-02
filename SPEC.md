@@ -1,8 +1,8 @@
-# Local Model API - Project Specification
+# FoxBridge - Project Specification
 
 ## Overview
 
-A TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
+**FoxBridge** is a TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
 
 ## Core Requirements
 
@@ -32,14 +32,15 @@ A TypeScript + NestJS API server that enables programmatic execution of Claude C
 ```json
 {
   "prompt": "string",           // Required: Claude CLI prompt
-  "schema": "object?"            // Optional: JSON schema for structured output
+  "schema": "object?",           // Optional: JSON schema for structured output
+  "workspaceId": "string?"       // Optional: UUID of existing workspace to reuse
 }
 ```
 
 **Notes:**
 - No `workingDirectory` field — each run automatically creates a workspace under `./workspaces/{uuid}/`
 - No `stream` field — streaming is determined by the `Accept` header
-- Future enhancement: allow reusing a workspace by providing a `workspaceId`
+- Providing `workspaceId` allows reusing an existing workspace for continuity across runs
 
 #### Example Requests
 
@@ -143,38 +144,60 @@ Workspaces can be created new or reused:
 **New Workspace:**
 - Automatically created if no `workspaceId` is provided
 - Directory: `./workspaces/{workspaceId}/` where `workspaceId` is a UUID
-- An initial `CLAUDE.md` file is created to track project state
+- An initial `CLAUDE.md` file is created to reference other tracking files
 - The `workspaceId` and `runId` are returned in the response
 
 **Reusing a Workspace:**
 - Provide `workspaceId` in the request body
 - The workspace directory must exist (returns 400 if not)
 - Allows continuity across multiple runs
-- The `CLAUDE.md` file tracks state between runs
+- State is tracked across `AGENTS.md`, `SPECIFICATION.md`, and `CHANGELOG.md`
 
 ### Directory Structure
 ```
 local-model-api/
 ├── workspaces/
 │   ├── abc-123-def-456/       # Workspace for run 1
-│   │   ├── CLAUDE.md          # Project state tracking
+│   │   ├── CLAUDE.md          # Reference file (DO NOT MODIFY)
+│   │   ├── AGENTS.md          # Agent state and context
+│   │   ├── SPECIFICATION.md   # Workspace specification
+│   │   ├── CHANGELOG.md       # Run history
 │   │   └── ...                # Other files created during execution
 │   └── xyz-789-uvw-012/       # Workspace for run 2
 │       ├── CLAUDE.md
+│       ├── AGENTS.md
+│       ├── SPECIFICATION.md
+│       ├── CHANGELOG.md
 │       └── ...
 ```
 
 **Note:** The `workspaces/` directory is gitignored.
 
-### CLAUDE.md State File
+### Workspace State Files
 
-Each workspace contains a `CLAUDE.md` file that tracks:
-- Current task and objectives
-- Completed steps
-- Next steps and pending work
+Each workspace contains several tracking files:
+
+**CLAUDE.md** (Reference only):
+- Generated file that points to other tracking files
+- Should not be modified directly
+- References `AGENTS.md`, `SPECIFICATION.md`, and `CHANGELOG.md`
+
+**AGENTS.md**:
+- Current state of the project
 - Important context for future runs
+- Technical details and tooling information
+- People, teams, companies involved
 
-The prompt automatically includes instructions for Claude to update this file after each run, ensuring continuity when reusing workspaces.
+**SPECIFICATION.md**:
+- Mid-high level feature documentation
+- Updated with current state of workspace
+
+**CHANGELOG.md**:
+- Chronological run history
+- Each entry includes date, time, and run ID
+- Tracks executed tasks, implemented/modified/removed features
+
+The prompt automatically includes instructions for Claude to update these files after each run, ensuring continuity when reusing workspaces.
 
 ## Architecture
 
@@ -183,8 +206,10 @@ The prompt automatically includes instructions for Claude to update this file af
 ```
 src/
 ├── main.ts                    # Bootstrap NestJS application
-├── app.module.ts              # Root module (imports RunsModule)
+├── app.module.ts              # Root module (imports RunsModule, ConfigModule)
 ├── types.ts                   # Shared types (StreamEvent)
+├── lib/
+│   └── enhancePrompt.ts       # Prompt enhancement utility
 ├── claude/
 │   ├── claude.module.ts       # Claude module (exports ClaudeService)
 │   └── claude.service.ts      # Claude CLI execution logic
@@ -204,8 +229,10 @@ src/
 
 **Methods:**
 
-1. **`createWorkspace(): WorkspaceContext`**
-   - Creates a new workspace directory under `./workspaces/{uuid}/`
+1. **`ensureWorkspace(existingWorkspaceId?: string): WorkspaceContext`**
+   - Creates a new workspace directory under `./workspaces/{uuid}/` if no ID provided
+   - Reuses existing workspace if `existingWorkspaceId` is provided
+   - Validates that existing workspace directory exists (throws 400 if not)
    - Returns `{ workspaceId, runId, workingDir }`
 
 2. **`executeJsonStream(options): Promise<number | null>`**
@@ -232,27 +259,40 @@ src/
 **Methods:**
 
 **`run(options): Promise<unknown>`**
-- Enhances the prompt with CLAUDE.md maintenance instructions
-- Builds Claude CLI arguments
+- Creates initial `CLAUDE.md` reference file in workspace
+- Enhances the prompt with workspace file maintenance instructions (via `enhancePrompt` utility)
+- Builds Claude CLI arguments including `--continue` flag
 - Sets permission mode (`bypassPermissions`)
 - Strips `CLAUDE_CODE` and `CLAUDECODE` from environment
 - Uses `RunsService.executeJsonStream()` to run the command
 - Finds and returns the `type: "result"` or `type: "result_success"` event
 - Options:
-  - `prompt`: The prompt to execute (will be enhanced with CLAUDE.md instructions)
+  - `prompt`: The prompt to execute (will be enhanced with file maintenance instructions)
+  - `runId`: Unique identifier for this run (used in CHANGELOG.md entries)
   - `workingDir`: Workspace directory path
   - `outputSchema`: Optional JSON schema for structured output
   - `onOutput`: Callback for streaming events (optional)
 
 **Prompt Enhancement:**
 
-The service automatically appends instructions to every prompt:
+The prompt enhancement is handled by the `enhancePrompt` utility in `src/lib/enhancePrompt.ts`. It automatically appends instructions to every prompt:
+
 ```
-IMPORTANT: After completing the task, update the CLAUDE.md file in the workspace with:
+IMPORTANT: Never read/create/modify files outside of this directory. Current directory is your workspace and build everything here.
+
+IMPORTANT: After completing the task, update the AGENTS.md file in the workspace with:
 - Current state of the project
-- What was accomplished in this run
-- Next steps or pending tasks
 - Any important context for future runs
+- Include technical details and tooling if applicable
+- Include information about any people, teams, companies involved if applicable
+
+IMPORTANT: Also maintain the workspace specification in the single SPECIFICATION.md file
+- Try to include every feature on mid-high level
+- Update this file with current state
+
+IMPORTANT: On every run also create new entry at the beginning of CHANGELOG.md
+- Each entry should have title with date+time and run-id '{runId}'
+- Below in bullets write down any change e.g. executed tasks, implemented/modified/removed features, etc.
 
 This helps maintain continuity across multiple runs in the same workspace.
 ```
@@ -261,13 +301,15 @@ This helps maintain continuity across multiple runs in the same workspace.
 
 Example command:
 ```bash
-claude -p "What is 2+2?" --output-format stream-json --verbose --permission-mode bypassPermissions
+claude --continue -p "What is 2+2?" --output-format stream-json --verbose --permission-mode bypassPermissions
 ```
 
 With schema:
 ```bash
-claude -p "What is 2+2?" --output-format stream-json --verbose --permission-mode bypassPermissions --json-schema '{"type":"object",...}'
+claude --continue -p "What is 2+2?" --output-format stream-json --verbose --permission-mode bypassPermissions --json-schema '{"type":"object",...}'
 ```
+
+**Note:** The `--continue` flag allows the Claude CLI to resume from previous runs in the same workspace.
 
 #### RunsController
 
@@ -275,13 +317,33 @@ claude -p "What is 2+2?" --output-format stream-json --verbose --permission-mode
 
 **Flow:**
 
-1. Validate request body via `RunDto` (class-validator)
-2. Create workspace using `RunsService.createWorkspace()`
+1. Validate request body via `RunDto` (class-validator, including optional `workspaceId`)
+2. Create or reuse workspace using `RunsService.ensureWorkspace(workspaceId?)`
 3. Determine streaming mode from `Accept` header
 4. Set up response headers and event writer
-5. Execute Claude CLI via `ClaudeService.run()`
+5. Execute Claude CLI via `ClaudeService.run()` (passing `runId` for CHANGELOG tracking)
 6. Stream or buffer the response
 7. Handle client disconnects
+
+## Deployment
+
+### Vercel
+
+The project includes Vercel deployment configuration:
+
+**Files:**
+- `vercel.json` - Vercel configuration that routes all requests to `server.js`
+- `api/` directory - Contains Vercel serverless functions:
+  - `api/hello.ts` - Example hello endpoint
+  - `api/test.ts` - Test endpoint
+  - `api/index.ts` - Main API entry point
+- `public/` directory - Static files:
+  - `public/index.html` - Landing page
+
+**Configuration:**
+The `vercel.json` file uses `@vercel/node` builder and routes all traffic to the main server.
+
+**Note:** The `.vercel` directory (Vercel CLI cache) is gitignored.
 
 ## Error Handling
 
@@ -326,6 +388,13 @@ The `RunsService.executeJsonStream()` method implements robust line buffering:
    - Pop the last element (incomplete line) back into buffer
    - Parse and emit all complete lines
 3. This prevents JSON parsing errors from split chunks
+
+### Configuration
+
+The application uses NestJS `ConfigModule` to handle environment variables:
+- Loads from `.env.local` file (gitignored) if present
+- Falls back to system environment variables
+- Used for `WORKSPACES_DIR` configuration
 
 ### Module Dependencies
 

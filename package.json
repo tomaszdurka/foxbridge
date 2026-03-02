@@ -1,12 +1,12 @@
 {
-  "name": "local-model-api",
+  "name": "foxbridge",
   "version": "1.0.0",
-  "description": "TypeScript + Express API server for Claude CLI",
+  "description": "Local Model API - Bridge to Claude CLI with workspace isolation",
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main.js",
-    "start:dev": "nest start",
+    "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js"
   },
   "keywords": [
