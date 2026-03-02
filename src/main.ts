@@ -15,6 +15,9 @@ async function bootstrap() {
     }),
   );
 
+  // Add global prefix for API routes
+  app.setGlobalPrefix('api');
+
   const port = process.env.PORT || 3100;
   await app.listen(port);
 
