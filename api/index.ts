@@ -6,19 +6,18 @@ import { AppModule } from '../src/app.module';
 import { Request, Response } from 'express';
 import express from 'express';
 
-const server = express();
-let cachedApp: any;
+let cachedServer: express.Application | null = null;
 
 async function bootstrap() {
-  if (!cachedApp) {
-    const expressAdapter = new ExpressAdapter(server);
-    cachedApp = await NestFactory.create(
+  if (!cachedServer) {
+    const expressApp = express();
+    const app = await NestFactory.create(
       AppModule,
-      expressAdapter,
-      { logger: ['error', 'warn', 'log'] }
+      new ExpressAdapter(expressApp),
+      { logger: console }
     );
 
-    cachedApp.useGlobalPipes(
+    app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
@@ -26,13 +25,19 @@ async function bootstrap() {
       }),
     );
 
-    cachedApp.setGlobalPrefix('api');
-    await cachedApp.init();
+    app.setGlobalPrefix('api');
+    await app.init();
+    cachedServer = expressApp;
   }
-  return server;
+  return cachedServer;
 }
 
 export default async (req: Request, res: Response) => {
-  const serverInstance = await bootstrap();
-  return serverInstance(req, res);
+  try {
+    const server = await bootstrap();
+    server(req, res);
+  } catch (error) {
+    console.error('Function invocation error:', error);
+    res.status(500).json({ error: 'Internal server error', message: String(error) });
+  }
 };
