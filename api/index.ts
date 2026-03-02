@@ -2,9 +2,9 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { AppModule } from '../src/app.module';
+import { AppModule } from '../dist/app.module';
 import { Request, Response } from 'express';
-import express from 'express';
+import * as express from 'express';
 
 let cachedServer: express.Application | null = null;
 
