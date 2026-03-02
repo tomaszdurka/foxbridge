@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsObject, IsOptional } from 'class-validator';
 
-export class RunClaudeDto {
+export class RunDto {
   @IsString()
   @IsNotEmpty()
   prompt!: string;

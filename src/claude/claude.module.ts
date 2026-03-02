@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ClaudeService } from './claude.service';
+import { RunsModule } from '../runs/runs.module';
 
 @Module({
+  imports: [forwardRef(() => RunsModule)],
   providers: [ClaudeService],
   exports: [ClaudeService],
 })
