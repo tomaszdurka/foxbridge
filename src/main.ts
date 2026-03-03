@@ -10,6 +10,9 @@ import * as path from 'path';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable shutdown hooks for proper cleanup
+  app.enableShutdownHooks();
+
   // Enable CORS for frontend
   app.enableCors({
     origin: true,

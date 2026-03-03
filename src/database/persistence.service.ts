@@ -163,4 +163,29 @@ export class PersistenceService {
     await this.em.flush();
     return workspace;
   }
+
+  /**
+   * Stop all running runs (called on service startup/shutdown)
+   */
+  async stopAllRunningRuns(): Promise<number> {
+    try {
+      const runningRuns = await this.em.find(Run, { status: RunStatus.RUNNING });
+
+      if (runningRuns.length === 0) {
+        return 0;
+      }
+
+      for (const run of runningRuns) {
+        run.status = RunStatus.STOPPED;
+        run.completedAt = new Date();
+      }
+
+      await this.em.flush();
+      this.logger.log(`Stopped ${runningRuns.length} running run(s)`);
+      return runningRuns.length;
+    } catch (error) {
+      this.logger.error('Failed to stop running runs:', error);
+      return 0;
+    }
+  }
 }

@@ -7,6 +7,7 @@ export enum RunStatus {
   RUNNING = 'running',
   SUCCESS = 'success',
   FAILURE = 'failure',
+  STOPPED = 'stopped',
 }
 
 @Entity()
