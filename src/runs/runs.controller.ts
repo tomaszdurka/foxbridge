@@ -1,28 +1,71 @@
-import { Controller, Post, Get, Param, Body, Res, Headers, Req, Inject, NotFoundException } from '@nestjs/common';
-import {ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHeader} from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import { Controller, Get, Post, Param, Body, Res, Headers, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Response } from 'express';
+import { Run } from '../database/entities';
 import { RunDto } from './dto/run.dto';
-import { Run, RunEvent } from '../database/entities';
-import { ClaudeService } from '../claude/claude.service';
-import { RunsService } from './runs.service';
 import { PersistenceService } from '../database/persistence.service';
-import path from "path";
+import { ClaudeService } from '../claude/claude.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @ApiTags('runs')
 @Controller('runs')
 export class RunsController {
   constructor(
-    @Inject(ClaudeService) private readonly claude: ClaudeService,
-    @Inject(RunsService) private readonly runs: RunsService,
     @Inject(PersistenceService) private readonly persistence: PersistenceService,
+    @Inject(ClaudeService) private readonly claude: ClaudeService,
   ) {
   }
 
-  @Post('queue/claude')
+  private async prepareRun(dto: RunDto) {
+    let workspace;
+    let session;
+
+    if (dto.sessionId) {
+      // Continue existing session
+      session = await this.persistence.getSession({ sessionId: dto.sessionId });
+      if (!session) {
+        throw new NotFoundException(`Session ${dto.sessionId} not found`);
+      }
+      workspace = session.workspace;
+
+      // If workspaceId also provided, validate it matches
+      if (dto.workspaceId && workspace.workspaceId !== dto.workspaceId) {
+        throw new BadRequestException(
+          `Session ${dto.sessionId} belongs to workspace ${workspace.workspaceId}, not ${dto.workspaceId}`
+        );
+      }
+    } else if (dto.workspaceId) {
+      // Create new session in existing workspace
+      workspace = await this.persistence.getWorkspace({ workspaceId: dto.workspaceId });
+      if (!workspace) {
+        throw new NotFoundException(`Workspace ${dto.workspaceId} not found`);
+      }
+      session = await this.persistence.createSession({ workspaceId: workspace.workspaceId });
+    } else {
+      // Create new workspace and session
+      const workspaceId = uuidv4();
+      const workingDir = process.env.WORKSPACES_DIR
+        ? `${process.env.WORKSPACES_DIR}/${workspaceId}`
+        : `${process.cwd()}/workspaces/${workspaceId}`;
+      workspace = await this.persistence.createWorkspace({ workspaceId, workingDir });
+      session = await this.persistence.createSession({ workspaceId: workspace.workspaceId });
+    }
+
+    // Create run
+    const run = await this.persistence.createRun({
+      prompt: dto.prompt,
+      sessionId: session.sessionId,
+      workspaceId: workspace.workspaceId,
+      outputSchema: dto.schema,
+    });
+
+    return { run, session, workspace };
+  }
+
+  @Post('queue')
   @ApiOperation({
-    summary: 'Queue Claude prompt execution',
-    description: 'Queue a Claude CLI prompt for execution and return immediately with 201 Created. The job will run in the background.'
+    summary: 'Queue run execution',
+    description: 'Queue a Claude CLI run for execution and return immediately with 201 Created. Provide sessionId to continue session, workspaceId to create new session in workspace, or neither to create new workspace.'
   })
   @ApiResponse({
     status: 201,
@@ -31,73 +74,56 @@ export class RunsController {
       type: 'object',
       properties: {
         runId: { type: 'string' },
+        sessionId: { type: 'string' },
         workspaceId: { type: 'string' },
-        status: { type: 'string' },
       }
     }
   })
-  @ApiResponse({ status: 400, description: 'Invalid request body or workspace ID format' })
-  async queueClaude(
-    @Body() dto: RunDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    const { runId, workspace } = await this.runs.createRun({
-      workspaceId: dto.workspaceId,
-      workspaceName: dto.workspaceName,
-      outputSchema: dto.schema,
-      prompt: dto.prompt,
-    });
+  async queueRun(@Body() dto: RunDto, @Res() res: Response): Promise<void> {
+    const { run, session, workspace } = await this.prepareRun(dto);
 
-    // Start the job asynchronously (don't await)
+    // Start job asynchronously
     this.claude.run({
       prompt: dto.prompt,
-      runId,
+      runId: run.runId,
+      sessionId: session.sessionId,
       workingDir: workspace.workingDir,
       outputSchema: dto.schema,
     }).catch(err => {
-      console.error(`Error in background job ${runId}:`, err);
+      console.error(`Error in background job ${run.runId}:`, err);
     });
 
     res.status(201).json({
-      runId,
+      runId: run.runId,
+      sessionId: session.sessionId,
       workspaceId: workspace.workspaceId,
-      status: 'queued',
     });
   }
 
-  @Post('claude')
+  @Post()
   @ApiOperation({
-    summary: 'Execute Claude prompt',
-    description: 'Execute a Claude CLI prompt with optional JSON schema output. Supports both streaming (application/x-ndjson) and buffered response modes.'
+    summary: 'Execute run',
+    description: 'Execute a Claude CLI run. Supports streaming (application/x-ndjson) and buffered modes. Provide sessionId to continue session, workspaceId to create new session in workspace, or neither to create new workspace.'
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Claude execution started. Returns NDJSON stream if Accept header is application/x-ndjson, otherwise returns buffered result.'
-  })
-  @ApiResponse({ status: 400, description: 'Invalid request body or workspace ID format' })
-  async executeClaude(
+  @ApiResponse({ status: 200, description: 'Run completed or streaming' })
+  async executeRun(
     @Body() dto: RunDto,
     @Headers('accept') accept: string,
-    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const {runId, workspace} = await this.runs.createRun({
-      workspaceId: dto.workspaceId,
-      workspaceName: dto.workspaceName,
-      outputSchema: dto.schema,
-      prompt: dto.prompt,
-    })
+    const { run, session, workspace } = await this.prepareRun(dto);
 
     const isStreaming = accept?.includes('application/x-ndjson');
     let clientDisconnected = false;
 
-    const writeEvent = (e: any) => {
+    const writeEvent = (event: any) => {
       if (!clientDisconnected) {
         res.write(JSON.stringify({
           timestamp: new Date().toISOString(),
           workspaceId: workspace.workspaceId,
-          runId,
-          ...e
+          sessionId: session.sessionId,
+          runId: run.runId,
+          ...event
         }) + '\n');
       }
     };
@@ -112,7 +138,8 @@ export class RunsController {
 
     const result = await this.claude.run({
       prompt: dto.prompt,
-      runId,
+      runId: run.runId,
+      sessionId: session.sessionId,
       workingDir: workspace.workingDir,
       outputSchema: dto.schema,
       onOutput: isStreaming ? writeEvent : undefined,

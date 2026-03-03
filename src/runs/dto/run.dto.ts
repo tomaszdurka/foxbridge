@@ -20,21 +20,22 @@ export class RunDto {
   schema?: Record<string, unknown>;
 
   @ApiProperty({
-    description: 'Optional workspace ID to reuse existing workspace',
+    description: 'Optional workspace ID (creates new session in workspace if provided without sessionId)',
     required: false,
     example: '550e8400-e29b-41d4-a716-446655440000'
   })
   @IsString()
   @IsOptional()
-  @Matches(/^[a-f0-9-]+$/, { message: 'workspaceId must be a valid UUID format (alphanumeric and hyphens only)' })
+  @Matches(/^[a-f0-9-]+$/, { message: 'workspaceId must be a valid UUID format' })
   workspaceId?: string;
 
   @ApiProperty({
-    description: 'Optional workspace name (only used when creating a new workspace)',
+    description: 'Optional session ID (continues existing session if provided)',
     required: false,
-    example: 'My Project Workspace'
+    example: '550e8400-e29b-41d4-a716-446655440000'
   })
   @IsString()
   @IsOptional()
-  workspaceName?: string;
+  @Matches(/^[a-f0-9-]+$/, { message: 'sessionId must be a valid UUID format' })
+  sessionId?: string;
 }

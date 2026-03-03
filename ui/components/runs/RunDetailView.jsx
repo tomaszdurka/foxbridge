@@ -128,6 +128,12 @@ export default function RunDetailView({ run }) {
             </span>
           </p>
           <p>
+            <span className="grid-label">Session:</span>{' '}
+            <span className="ml-2 font-mono text-xs">
+              {run.session?.sessionId || '-'}
+            </span>
+          </p>
+          <p>
             <span className="grid-label">Exit Code:</span> <span className="ml-2">{run.exitCode ?? '-'}</span>
           </p>
           <p>

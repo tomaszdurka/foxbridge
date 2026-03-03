@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/core';
-import { RunStatus, Workspace, Run, RunEvent } from './entities';
+import { RunStatus, Workspace, Session, Run, RunEvent } from './entities';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from "node:fs";
 
@@ -55,6 +55,29 @@ export class PersistenceService {
   }
 
   /**
+   * Create a session
+   */
+  async createSession(payload: {
+    workspaceId: string;
+  }): Promise<Session> {
+    const sessionId = uuidv4();
+    const session = this.em.create(Session, {
+      sessionId,
+      workspace: { workspaceId: payload.workspaceId } as any,
+    });
+    this.em.persist(session);
+    await this.em.flush();
+    return session;
+  }
+
+  /**
+   * Get a session
+   */
+  async getSession(payload: { sessionId: string }): Promise<Session | null> {
+    return this.em.findOne(Session, { sessionId: payload.sessionId }, { populate: ['workspace', 'runs'] });
+  }
+
+  /**
    * Retrieve a workspace
    */
   async getWorkspace(payload: { workspaceId: string }): Promise<Workspace | null> {
@@ -65,7 +88,7 @@ export class PersistenceService {
    * Retrieve a run with events
    */
   async getRun(payload: { runId: string }): Promise<Run | null> {
-    return this.em.findOne(Run, { runId: payload.runId }, { populate: ['events', 'workspace'] });
+    return this.em.findOne(Run, { runId: payload.runId }, { populate: ['events', 'workspace', 'session'] });
   }
 
   /**
@@ -92,6 +115,7 @@ export class PersistenceService {
    */
   async createRun(payload: {
     prompt: string;
+    sessionId: string;
     workspaceId: string;
     outputSchema?: object;
   }): Promise<Run> {
@@ -99,6 +123,7 @@ export class PersistenceService {
     const run = this.em.create(Run, {
       runId,
       prompt: payload.prompt,
+      session: { sessionId: payload.sessionId } as any,
       workspace: { workspaceId: payload.workspaceId } as any,
       outputSchema: payload.outputSchema,
       status: RunStatus.RUNNING,
@@ -143,7 +168,7 @@ export class PersistenceService {
    * Get run with events
    */
   async findRunWithEvents(payload: { runId: string }): Promise<Run | null> {
-    return this.em.findOne(Run, { runId: payload.runId }, { populate: ['events', 'workspace'] });
+    return this.em.findOne(Run, { runId: payload.runId }, { populate: ['events', 'workspace', 'session'] });
   }
 
   /**

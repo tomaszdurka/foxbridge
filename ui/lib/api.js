@@ -38,7 +38,7 @@ export async function getWorkspaceFile(workspaceId, filename) {
 }
 
 export async function queueRun(data) {
-  return request('/runs/queue/claude', {
+  return request('/runs/queue', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)

@@ -1,15 +1,13 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { PersistenceModule } from '../database/persistence.module';
 import { ClaudeModule } from '../claude/claude.module';
-import { RunsModule } from '../runs/runs.module';
-import { WorkspacesController } from './workspaces.controller';
+import { SessionsController } from './sessions.controller';
 
 @Module({
   imports: [
     PersistenceModule,
     forwardRef(() => ClaudeModule),
-    forwardRef(() => RunsModule),
   ],
-  controllers: [WorkspacesController],
+  controllers: [SessionsController],
 })
-export class WorkspacesModule {}
+export class SessionsModule {}

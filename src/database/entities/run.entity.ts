@@ -1,6 +1,7 @@
 import { Entity, PrimaryKey, Property, ManyToOne, OneToMany, Collection, Enum, OptionalProps } from '@mikro-orm/core';
 import { ApiProperty } from '@nestjs/swagger';
 import { Workspace } from './workspace.entity';
+import { Session } from './session.entity';
 import { RunEvent } from './run-event.entity';
 
 export enum RunStatus {
@@ -49,6 +50,10 @@ export class Run {
   @ApiProperty({ description: 'Last heartbeat timestamp', required: false })
   @Property({ onCreate: () => new Date(), onUpdate: () => new Date(), nullable: true })
   lastHeartbeat?: Date;
+
+  @ApiProperty({ description: 'Session this run belongs to', type: () => Session })
+  @ManyToOne(() => Session)
+  session!: Session;
 
   @ApiProperty({ description: 'Workspace this run belongs to', type: () => Workspace })
   @ManyToOne(() => Workspace)

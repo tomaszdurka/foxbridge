@@ -59,21 +59,6 @@ export class RunsService {
     });
   }
 
-
-  async createRun({workspaceId: optionalWorkspaceId, workspaceName, prompt, outputSchema}: {
-    workspaceId?: string;
-    workspaceName?: string;
-    prompt: string;
-    outputSchema?: object;
-  }) {
-    const { workspaceId } = await this.ensureWorkspace(optionalWorkspaceId, workspaceName);
-    return this.persistence.createRun({
-      workspaceId,
-      prompt,
-      outputSchema
-    })
-  }
-
   /**
    * Execute a command that outputs newline-delimited JSON
    */

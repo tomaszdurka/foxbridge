@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 import { updateWorkspace, getWorkspaceFile, queueRun } from '@/lib/api';
@@ -55,12 +56,38 @@ export default function WorkspaceDetailView({ workspace }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [runError, setRunError] = useState(null);
   const [runSuccess, setRunSuccess] = useState(null);
+  const [selectedSessionId, setSelectedSessionId] = useState('new');
 
   const runs = workspace.runs ?? [];
   const availableFiles = ['AGENTS.md', 'SPECIFICATION.md', 'CHANGELOG.md'];
   const sorted = [...runs].sort(
     (a, b) => (Date.parse(b.startedAt ?? '') || 0) - (Date.parse(a.startedAt ?? '') || 0)
   );
+
+  // Extract unique sessions from runs
+  const sessions = useMemo(() => {
+    const sessionMap = new Map();
+    runs.forEach((run) => {
+      if (run.session) {
+        const sid = run.session.sessionId;
+        if (!sessionMap.has(sid)) {
+          sessionMap.set(sid, {
+            sessionId: sid,
+            lastUsed: run.startedAt,
+            runCount: 0
+          });
+        }
+        sessionMap.get(sid).runCount++;
+        const lastUsed = sessionMap.get(sid).lastUsed;
+        if (Date.parse(run.startedAt) > Date.parse(lastUsed)) {
+          sessionMap.get(sid).lastUsed = run.startedAt;
+        }
+      }
+    });
+    return Array.from(sessionMap.values()).sort(
+      (a, b) => (Date.parse(b.lastUsed ?? '') || 0) - (Date.parse(a.lastUsed ?? '') || 0)
+    );
+  }, [runs]);
 
   const handleSaveName = async () => {
     setIsSaving(true);
@@ -124,11 +151,20 @@ export default function WorkspaceDetailView({ workspace }) {
         }
       }
 
-      const result = await queueRun({
+      const payload = {
         prompt: runPrompt,
-        workspaceId: workspace.workspaceId,
         schema,
-      });
+      };
+
+      if (selectedSessionId === 'new') {
+        // Create new session in workspace
+        payload.workspaceId = workspace.workspaceId;
+      } else {
+        // Continue existing session
+        payload.sessionId = selectedSessionId;
+      }
+
+      const result = await queueRun(payload);
 
       setRunSuccess(`Job queued successfully! Run ID: ${result.runId}`);
       setRunPrompt('');
@@ -138,6 +174,7 @@ export default function WorkspaceDetailView({ workspace }) {
       setTimeout(() => {
         setShowRunDialog(false);
         setRunSuccess(null);
+        window.location.reload(); // Refresh to show new run
       }, 2000);
     } catch (err) {
       setRunError(err.message || 'Failed to queue job');
@@ -326,6 +363,24 @@ export default function WorkspaceDetailView({ workspace }) {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">
+                  Session
+                </label>
+                <Select value={selectedSessionId} onValueChange={setSelectedSessionId} disabled={isSubmitting}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New Session</SelectItem>
+                    {sessions.map((session) => (
+                      <SelectItem key={session.sessionId} value={session.sessionId}>
+                        Continue session {session.sessionId.slice(0, 8)}... ({session.runCount} run{session.runCount !== 1 ? 's' : ''})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
                   Output Schema (Optional JSON)
                 </label>
                 <textarea
@@ -369,42 +424,57 @@ export default function WorkspaceDetailView({ workspace }) {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Runs ({sorted.length})</CardTitle>
+            <CardTitle className="text-base">Sessions & Runs ({sessions.length} session{sessions.length !== 1 ? 's' : ''}, {sorted.length} run{sorted.length !== 1 ? 's' : ''})</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="grid gap-3 border-b bg-muted/40 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground lg:grid-cols-[minmax(0,3fr)_110px_110px_190px]">
-            <span>Prompt</span>
-            <span>Status</span>
-            <span>Elapsed</span>
-            <span>Started</span>
-          </div>
-          <ul className="divide-y">
-            {sorted.map((run) => (
-              <li key={run.runId}>
-                <Link href={`/runs/${run.runId}`} className="block px-4 py-4 transition hover:bg-muted/40">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_110px_110px_190px]">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{run.prompt || 'No prompt'}</p>
-                      <p className="mt-1 font-mono text-[11px] text-muted-foreground">{run.runId}</p>
-                    </div>
-                    <div className="flex items-center">
-                      <Badge variant="outline" className={statusBadgeClass(run.status)}>
-                        {run.status}
+          {sessions.length === 0 ? (
+            <div className="p-10 text-center text-sm text-muted-foreground">
+              No runs found for this workspace.
+            </div>
+          ) : (
+            <div className="divide-y">
+              {sessions.map((session) => {
+                const sessionRuns = sorted.filter(r => r.session?.sessionId === session.sessionId);
+                return (
+                  <div key={session.sessionId} className="p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                        Session
                       </Badge>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {session.sessionId.slice(0, 8)}...
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        · {session.runCount} run{session.runCount !== 1 ? 's' : ''}
+                      </span>
                     </div>
-                    <div className="text-xs">{elapsedForRun(run)}</div>
-                    <div className="text-xs text-muted-foreground">{run.startedAt}</div>
+                    <ul className="divide-y border-l-2 border-indigo-200">
+                      {sessionRuns.map((run) => (
+                        <li key={run.runId}>
+                          <Link href={`/runs/${run.runId}`} className="block px-4 py-3 transition hover:bg-muted/40">
+                            <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_110px_110px_190px]">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold">{run.prompt || 'No prompt'}</p>
+                                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{run.runId}</p>
+                              </div>
+                              <div className="flex items-center">
+                                <Badge variant="outline" className={statusBadgeClass(run.status)}>
+                                  {run.status}
+                                </Badge>
+                              </div>
+                              <div className="text-xs">{elapsedForRun(run)}</div>
+                              <div className="text-xs text-muted-foreground">{run.startedAt}</div>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </Link>
-              </li>
-            ))}
-            {sorted.length === 0 ? (
-              <li className="p-10 text-center text-sm text-muted-foreground">
-                No runs found for this workspace.
-              </li>
-            ) : null}
-          </ul>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

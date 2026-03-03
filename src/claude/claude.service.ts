@@ -5,10 +5,12 @@ import * as fs from "node:fs";
 import {enhancePrompt} from "../lib/enhancePrompt";
 import {PersistenceService} from "../database/persistence.service";
 import {RunStatus} from "../database/entities";
+import { Run } from '../database/entities';
 
 export type RunOptions = {
   prompt: string;
   runId: string;
+  sessionId: string;
   workingDir: string;
   outputSchema?: Record<string, unknown>;
   onOutput?: (line: unknown) => void;
@@ -25,7 +27,18 @@ export class ClaudeService {
 
   async run(options: RunOptions): Promise<unknown> {
 
-    const {runId}= options
+    const {runId, sessionId}= options
+
+    // Fetch session and check if it's the first run
+    const session = await this.persistence.getSession({ sessionId });
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    // Check if this is the first run in the session (no completed runs yet)
+    const sessionRuns = session.runs?.getItems() || [];
+    const isFirstRun = sessionRuns.filter((r: Run) => r.runId !== runId).length === 0;
+
     // Create initial CLAUDE.md file
     const claudeMdPath = path.join(options.workingDir, 'CLAUDE.md');
     const initialContent = `DO NOT MODIFY THIS FILE, ITS GENERATED
@@ -40,8 +53,17 @@ Please refer to:
 
     const enhancedPrompt = enhancePrompt(options);
     const permissionMode = 'bypassPermissions';
-    const args = [
-      '--continue',
+    const args = [];
+
+    // First run: create session with --session-id
+    // Subsequent runs: continue session with --resume
+    if (isFirstRun) {
+      args.push('--session-id', sessionId);
+    } else {
+      args.push('--resume', sessionId);
+    }
+
+    args.push(
       '-p',
       enhancedPrompt,
       '--output-format',
@@ -49,7 +71,7 @@ Please refer to:
       '--verbose',
       '--permission-mode',
       permissionMode,
-    ];
+    );
 
     // Add schema if provided
     if (options.outputSchema) {
@@ -64,7 +86,6 @@ Please refer to:
     this.logger.log(`claude ${args.join(' ')}`);
 
     let result: any = null;
-
 
     let sequence = 0
     const code = await this.runsService.executeJsonStream({
@@ -92,6 +113,7 @@ Please refer to:
       exitCode: code ?? 0,
       status: RunStatus.SUCCESS,
     })
+
     return result;
   }
 }
