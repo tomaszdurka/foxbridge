@@ -1,6 +1,7 @@
-import {RunOptions} from "../claude/claude.service";
+import {RunOptions} from "../runs/dto/run-options";
+import {Run} from "../database/entities";
 
-export const enhancePrompt = ({prompt, runId}: RunOptions) => `${prompt}
+export const enhancePrompt = ({prompt, runId}: Run) => `${prompt}
 
 IMPORTANT: Never read/create/modify files outside of this directory. Current directory is your workspace and build everything here.
 

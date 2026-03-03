@@ -6,13 +6,14 @@ import { RunDto } from './dto/run.dto';
 import { PersistenceService } from '../database/persistence.service';
 import { ClaudeService } from '../claude/claude.service';
 import { v4 as uuidv4 } from 'uuid';
+import {RunsService} from "./runs.service";
 
 @ApiTags('runs')
 @Controller('runs')
 export class RunsController {
   constructor(
-    @Inject(PersistenceService) private readonly persistence: PersistenceService,
-    @Inject(ClaudeService) private readonly claude: ClaudeService,
+    private readonly persistence: PersistenceService,
+    private readonly runs: RunsService,
   ) {
   }
 
@@ -83,12 +84,10 @@ export class RunsController {
     const { run, session, workspace } = await this.prepareRun(dto);
 
     // Start job asynchronously
-    this.claude.run({
-      prompt: dto.prompt,
-      runId: run.runId,
-      sessionId: session.sessionId,
-      workingDir: workspace.workingDir,
-      schema: dto.schema,
+    this.runs.run({
+      run,
+      session,
+      workspace,
     }).catch(err => {
       console.error(`Error in background job ${run.runId}:`, err);
     });
@@ -136,12 +135,10 @@ export class RunsController {
       writeEvent({ type: 'start' });
     }
 
-    const result = await this.claude.run({
-      prompt: dto.prompt,
-      runId: run.runId,
-      sessionId: session.sessionId,
-      workingDir: workspace.workingDir,
-      schema: dto.schema,
+    const result = await this.runs.run({
+      run,
+      session,
+      workspace,
       onOutput: isStreaming ? writeEvent : undefined,
     });
 
