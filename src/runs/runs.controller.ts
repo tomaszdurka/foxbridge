@@ -19,6 +19,52 @@ export class RunsController {
   ) {
   }
 
+  @Post('queue/claude')
+  @ApiOperation({
+    summary: 'Queue Claude prompt execution',
+    description: 'Queue a Claude CLI prompt for execution and return immediately with 201 Created. The job will run in the background.'
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Job queued successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        runId: { type: 'string' },
+        workspaceId: { type: 'string' },
+        status: { type: 'string' },
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid request body or workspace ID format' })
+  async queueClaude(
+    @Body() dto: RunDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { runId, workspace } = await this.runs.createRun({
+      workspaceId: dto.workspaceId,
+      workspaceName: dto.workspaceName,
+      outputSchema: dto.schema,
+      prompt: dto.prompt,
+    });
+
+    // Start the job asynchronously (don't await)
+    this.claude.run({
+      prompt: dto.prompt,
+      runId,
+      workingDir: workspace.workingDir,
+      outputSchema: dto.schema,
+    }).catch(err => {
+      console.error(`Error in background job ${runId}:`, err);
+    });
+
+    res.status(201).json({
+      runId,
+      workspaceId: workspace.workspaceId,
+      status: 'queued',
+    });
+  }
+
   @Post('claude')
   @ApiOperation({
     summary: 'Execute Claude prompt',
@@ -37,6 +83,7 @@ export class RunsController {
   ): Promise<void> {
     const {runId, workspace} = await this.runs.createRun({
       workspaceId: dto.workspaceId,
+      workspaceName: dto.workspaceName,
       outputSchema: dto.schema,
       prompt: dto.prompt,
     })

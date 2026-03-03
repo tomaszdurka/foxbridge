@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
-import { updateWorkspace, getWorkspaceFile } from '@/lib/api';
-import { Edit2, Check, X, FileText } from 'lucide-react';
+import { updateWorkspace, getWorkspaceFile, queueRun } from '@/lib/api';
+import { Edit2, Check, X, FileText, Play } from 'lucide-react';
 
 function formatElapsed(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -46,6 +48,12 @@ export default function WorkspaceDetailView({ workspace }) {
   const [fileContent, setFileContent] = useState('');
   const [loadingFile, setLoadingFile] = useState(false);
   const [fileError, setFileError] = useState(null);
+  const [showRunDialog, setShowRunDialog] = useState(false);
+  const [runPrompt, setRunPrompt] = useState('');
+  const [runSchema, setRunSchema] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [runError, setRunError] = useState(null);
+  const [runSuccess, setRunSuccess] = useState(null);
 
   const runs = workspace.runs ?? [];
   const availableFiles = ['AGENTS.md', 'SPECIFICATION.md', 'CHANGELOG.md'];
@@ -93,6 +101,50 @@ export default function WorkspaceDetailView({ workspace }) {
     }
   };
 
+  const handleRunPrompt = async () => {
+    if (!runPrompt.trim()) {
+      setRunError('Prompt is required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setRunError(null);
+    setRunSuccess(null);
+
+    try {
+      let schema = undefined;
+      if (runSchema.trim()) {
+        try {
+          schema = JSON.parse(runSchema);
+        } catch (err) {
+          setRunError('Invalid JSON schema format');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      const result = await queueRun({
+        prompt: runPrompt,
+        workspaceId: workspace.workspaceId,
+        schema,
+      });
+
+      setRunSuccess(`Job queued successfully! Run ID: ${result.runId}`);
+      setRunPrompt('');
+      setRunSchema('');
+
+      // Close dialog after 2 seconds
+      setTimeout(() => {
+        setShowRunDialog(false);
+        setRunSuccess(null);
+      }, 2000);
+    } catch (err) {
+      setRunError(err.message || 'Failed to queue job');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <Card>
@@ -136,13 +188,6 @@ export default function WorkspaceDetailView({ workspace }) {
                     <span className="text-muted-foreground italic">Unnamed Workspace</span>
                   )}
                 </h2>
-                <button
-                  onClick={handleOpenFiles}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
-                  title="View workspace files"
-                >
-                  <FileText className="h-5 w-5" />
-                </button>
                 <button
                   onClick={() => setIsEditingName(true)}
                   className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
@@ -188,6 +233,7 @@ export default function WorkspaceDetailView({ workspace }) {
             ) : (
               <div className="markdown-content">
                 <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
                   components={{
                     h1: ({node, ...props}) => <h1 className="text-2xl font-bold mt-6 mb-4 text-slate-900" {...props} />,
                     h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-5 mb-3 text-slate-900" {...props} />,
@@ -221,7 +267,13 @@ export default function WorkspaceDetailView({ workspace }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Workspace Info</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Workspace Info</CardTitle>
+            <Button onClick={() => setShowRunDialog(true)}>
+              <Play className="h-4 w-4 mr-2" />
+              Run Prompt
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p>
@@ -240,8 +292,78 @@ export default function WorkspaceDetailView({ workspace }) {
             <span className="grid-label">Updated:</span>{' '}
             <span className="ml-2 text-muted-foreground">{workspace.updatedAt}</span>
           </p>
+          <Separator className="my-4" />
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleOpenFiles}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            View Workspace Files
+          </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={showRunDialog} onOpenChange={setShowRunDialog}>
+        <DialogContent onClose={() => setShowRunDialog(false)}>
+          <DialogHeader>
+            <DialogTitle>Run Prompt in Workspace</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Prompt <span className="text-rose-600">*</span>
+                </label>
+                <textarea
+                  value={runPrompt}
+                  onChange={(e) => setRunPrompt(e.target.value)}
+                  placeholder="Enter your prompt here..."
+                  className="w-full min-h-[120px] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Output Schema (Optional JSON)
+                </label>
+                <textarea
+                  value={runSchema}
+                  onChange={(e) => setRunSchema(e.target.value)}
+                  placeholder='{"type": "object", "properties": {...}}'
+                  className="w-full min-h-[100px] rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y"
+                  disabled={isSubmitting}
+                />
+              </div>
+              {runError && (
+                <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+                  {runError}
+                </div>
+              )}
+              {runSuccess && (
+                <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
+                  {runSuccess}
+                </div>
+              )}
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRunDialog(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleRunPrompt}
+                  disabled={isSubmitting || !runPrompt.trim()}
+                >
+                  {isSubmitting ? 'Queuing...' : 'Run Prompt'}
+                </Button>
+              </div>
+            </div>
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
