@@ -7,10 +7,12 @@
 ## Features
 
 - 🚀 Execute Claude CLI commands via REST API
-- 📦 Automatic workspace isolation for each run
+- 📦 Automatic workspace isolation with persistent sessions
 - 🔄 Two response modes: buffered JSON or streaming JSONL
 - 📝 JSON schema validation for structured outputs
-- 🔁 Workspace reuse for multi-run continuity
+- 🔁 Session management for conversation continuity
+- 💾 SQLite persistence with MikroORM
+- 🎨 Next.js 16 dashboard UI for monitoring and management
 - 📊 Built-in state tracking across runs
 
 ## ⚠️ Disclaimer
@@ -29,11 +31,17 @@ By using FoxBridge, you acknowledge and accept these risks and responsibilities.
 ```bash
 # Install dependencies
 npm install
+cd ui && npm install && cd ..
 
-# Start development server
-npm run start:dev
+# Start API server
+npm run dev:api
 
-# API will be available at http://localhost:3100
+# Start UI (in another terminal)
+npm run dev:ui
+
+# API: http://localhost:3100
+# UI Dashboard: http://localhost:3101
+# Swagger Docs: http://localhost:3100/api
 ```
 
 ## Example Usage
@@ -66,6 +74,16 @@ curl -X POST http://localhost:3100/runs/claude \
     "prompt": "Explain how TypeScript generics work"
   }'
 ```
+
+## Dashboard UI
+
+FoxBridge includes a Next.js 16 dashboard for visual management:
+
+- **Runs** - View all Claude CLI executions with status, results, and logs
+- **Workspaces** - Manage isolated project environments
+- **Sessions** - Track conversation continuity across multiple runs
+
+Access the dashboard at `http://localhost:3101` after starting the UI server.
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**FoxBridge** is a TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
+**FoxBridge** is a TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output. The system includes SQLite persistence for tracking runs, sessions, and workspaces, plus a Next.js 16 dashboard UI for visual management. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
 
 ## Core Requirements
 
@@ -14,14 +14,83 @@
 
 ### 2. Key Features
 - Execute Claude CLI commands programmatically
+- Session management for conversation continuity
 - Automatic workspace creation for each run
 - Two response modes: buffered JSON and streaming JSONL (based on `Accept` header)
 - Structured schema output validation
 - Workspace isolation with unique IDs
+- SQLite persistence with MikroORM
+- Next.js 16 dashboard UI for monitoring runs, sessions, and workspaces
+- Lifecycle management with automatic cleanup of interrupted runs
+
+## Session Management
+
+### Overview
+Sessions enable conversation continuity across multiple runs. Each session belongs to a workspace and maintains context through Claude CLI's `--session-id` and `--resume` flags.
+
+### How Sessions Work
+- **First run in session**: Uses `--session-id {sessionId}` to create a new Claude CLI conversation
+- **Subsequent runs**: Uses `--resume {sessionId}` to continue the conversation
+- Sessions are tied to workspaces for project isolation
+- Multiple sessions can exist within a single workspace (useful for different features/tasks)
+
+### Session Lifecycle
+1. Create a new session by providing `workspaceId` in run request
+2. Continue existing session by providing `sessionId` in run request
+3. Sessions persist indefinitely and can be resumed at any time
+4. Each run within a session builds on the conversation history
 
 ## API Specification
 
-### Endpoint: `POST /runs/claude`
+### Core Endpoints
+
+#### `POST /runs/queue`
+Queue a new run (returns immediately)
+
+**Request Body:**
+```json
+{
+  "prompt": "string",           // Required
+  "schema": "object?",           // Optional JSON schema
+  "workspaceId": "string?",      // Creates new session in workspace
+  "sessionId": "string?"         // Continues existing session
+}
+```
+
+**Response (201):**
+```json
+{
+  "runId": "uuid",
+  "sessionId": "uuid",
+  "workspaceId": "uuid",
+  "status": "queued"
+}
+```
+
+#### `POST /runs`
+Execute run and wait for completion (supports streaming)
+
+Same request body as `/runs/queue`, supports both buffered and streaming modes via `Accept` header.
+
+#### `GET /runs`
+List all runs
+
+#### `GET /runs/:runId`
+Get run details with events and results
+
+#### `GET /sessions`
+List all sessions with workspace info
+
+#### `GET /sessions/:sessionId`
+Get session details with all runs
+
+#### `GET /workspaces`
+List all workspaces
+
+#### `GET /workspaces/:workspaceId`
+Get workspace details with sessions
+
+### Legacy Endpoint: `POST /runs/claude`
 
 #### Request Headers
 - `Content-Type: application/json`
@@ -324,6 +393,55 @@ claude --continue -p "What is 2+2?" --output-format stream-json --verbose --perm
 5. Execute Claude CLI via `ClaudeService.run()` (passing `runId` for CHANGELOG tracking)
 6. Stream or buffer the response
 7. Handle client disconnects
+
+## Dashboard UI
+
+### Overview
+FoxBridge includes a Next.js 16 dashboard built with Turbopack for fast development and modern UI components using shadcn/ui.
+
+### Features
+- **Runs Dashboard** - View all Claude CLI executions with real-time status updates
+  - Filter by status, search by prompt
+  - View detailed logs and results
+  - Navigate to related sessions and workspaces
+
+- **Sessions View** - Track conversation continuity
+  - List all sessions across workspaces
+  - View runs within each session
+  - Continue sessions with new prompts
+  - Navigate to parent workspace
+
+- **Workspaces View** - Manage isolated environments
+  - List all workspaces with metadata
+  - Edit workspace names
+  - View sessions and workspace files (AGENTS.md, SPECIFICATION.md, CHANGELOG.md)
+  - Create new runs in workspace
+
+### Navigation
+- Seamless cross-navigation between runs, sessions, and workspaces
+- Each list page includes quick links to related views
+- Detail pages include breadcrumb navigation
+
+### Technology Stack
+- **Framework**: Next.js 16 with App Router
+- **Build Tool**: Turbopack (faster than Webpack)
+- **UI Components**: shadcn/ui (Radix UI + Tailwind CSS)
+- **Styling**: Tailwind CSS with custom design tokens
+- **Data Fetching**: Server-side rendering with React Server Components
+
+### Development
+```bash
+# Start UI dev server
+npm run dev:ui
+
+# Build for production
+npm run build:ui
+
+# Start production server
+npm run start:ui
+```
+
+The UI runs on port 3101 by default and communicates with the API on port 3100.
 
 ## Deployment
 
