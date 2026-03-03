@@ -22,10 +22,6 @@ export class RunEvent {
   @Property()
   sequence!: number;
 
-  @ApiProperty({ description: 'Event source', enum: ['stdout', 'stderr', 'controller'] })
-  @Property()
-  source!: string;
-
   @ApiProperty({ description: 'Event creation timestamp' })
   @Property({ onCreate: () => new Date() })
   createdAt!: Date;

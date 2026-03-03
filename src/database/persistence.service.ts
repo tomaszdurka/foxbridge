@@ -25,7 +25,6 @@ export class PersistenceService {
         type: payload.event.type || 'unknown',
         payload: payload.event,
         sequence: payload.sequence,
-        source: 'stdout',
       });
       this.em.persist(event);
       await this.em.flush();

@@ -33,13 +33,6 @@ function statusBadgeClass(status) {
   return 'bg-slate-100 text-slate-700 border-slate-200';
 }
 
-function sourceBadgeClass(source) {
-  if (source === 'stdout') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-  if (source === 'stderr') return 'bg-rose-100 text-rose-900 border-rose-200';
-  if (source === 'controller') return 'bg-blue-100 text-blue-800 border-blue-200';
-  return 'bg-slate-100 text-slate-700 border-slate-200';
-}
-
 function EventRow({ event }) {
   const [open, setOpen] = useState(false);
   let payloadPreview = null;
@@ -62,9 +55,6 @@ function EventRow({ event }) {
         onClick={() => setOpen((x) => !x)}
       >
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="outline" className={sourceBadgeClass(event.source)}>
-            {event.source}
-          </Badge>
           <Badge variant="outline" className="bg-indigo-100 text-indigo-800 border-indigo-200">
             {event.type}
           </Badge>
@@ -89,7 +79,6 @@ function EventRow({ event }) {
 export default function RunDetailView({ run }) {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [sourceFilter, setSourceFilter] = useState('all');
 
   const events = run.events ?? [];
 
@@ -98,23 +87,17 @@ export default function RunDetailView({ run }) {
     return ['all', ...new Set(types)];
   }, [events]);
 
-  const sourceOptions = useMemo(() => {
-    const sources = events.map((e) => e.source);
-    return ['all', ...new Set(sources)];
-  }, [events]);
-
   const filteredEvents = useMemo(() => {
     const q = query.trim().toLowerCase();
     return [...events]
       .sort((a, b) => (Date.parse(a.createdAt ?? '') || 0) - (Date.parse(b.createdAt ?? '') || 0))
       .filter((event) => {
         if (typeFilter !== 'all' && event.type !== typeFilter) return false;
-        if (sourceFilter !== 'all' && event.source !== sourceFilter) return false;
         if (!q) return true;
-        const blob = `${event.type}\n${event.source}\n${event.payload ?? ''}`.toLowerCase();
+        const blob = `${event.type}\n${event.payload ?? ''}`.toLowerCase();
         return blob.includes(q);
       });
-  }, [events, query, typeFilter, sourceFilter]);
+  }, [events, query, typeFilter]);
 
   return (
     <div className="grid gap-5 lg:grid-cols-5">
@@ -202,9 +185,8 @@ export default function RunDetailView({ run }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2">
             <Input
-              className="md:col-span-2"
               placeholder="Search event text..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -217,18 +199,6 @@ export default function RunDetailView({ run }) {
                 {typeOptions.map((v) => (
                   <SelectItem key={v} value={v}>
                     {v === 'all' ? 'All types' : v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Source" />
-              </SelectTrigger>
-              <SelectContent>
-                {sourceOptions.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v === 'all' ? 'All sources' : v}
                   </SelectItem>
                 ))}
               </SelectContent>
