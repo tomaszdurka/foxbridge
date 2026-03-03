@@ -1,8 +1,10 @@
-import { Controller, Get, Param, Patch, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Body, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 import { PersistenceService } from '../database/persistence.service';
 import { Workspace } from '../database/entities';
 import { UpdateWorkspaceDto } from './dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @ApiTags('workspaces')
 @Controller('workspaces')
@@ -51,5 +53,46 @@ export class WorkspacesController {
     }
 
     return workspace;
+  }
+
+  @Get(':workspaceId/files/:filename')
+  @ApiOperation({
+    summary: 'Read workspace file',
+    description: 'Read specific markdown files from the workspace directory (changelog.md, specification.md, agents.md, AGENTS.md, CLAUDE.md)'
+  })
+  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiParam({
+    name: 'filename',
+    description: 'File name',
+    enum: ['changelog.md', 'specification.md', 'agents.md', 'AGENTS.md', 'CLAUDE.md'],
+    example: 'AGENTS.md'
+  })
+  @ApiResponse({ status: 200, description: 'File content', schema: { type: 'object', properties: { content: { type: 'string' } } } })
+  @ApiResponse({ status: 404, description: 'Workspace or file not found' })
+  @ApiResponse({ status: 400, description: 'Invalid filename' })
+  async getWorkspaceFile(
+    @Param('workspaceId') workspaceId: string,
+    @Param('filename') filename: string
+  ): Promise<{ content: string; filename: string }> {
+    // Whitelist of allowed files
+    const allowedFiles = ['changelog.md', 'specification.md', 'agents.md', 'AGENTS.md', 'CLAUDE.md'];
+
+    if (!allowedFiles.includes(filename)) {
+      throw new BadRequestException(`File ${filename} is not allowed. Allowed files: ${allowedFiles.join(', ')}`);
+    }
+
+    const workspace = await this.db.getWorkspace({ workspaceId });
+    if (!workspace) {
+      throw new NotFoundException(`Workspace ${workspaceId} not found`);
+    }
+
+    const filePath = path.join(workspace.workingDir, filename);
+
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException(`File ${filename} not found in workspace`);
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return { content, filename };
   }
 }

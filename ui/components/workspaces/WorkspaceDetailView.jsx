@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { updateWorkspace } from '@/lib/api';
-import { Edit2, Check, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
+import { updateWorkspace, getWorkspaceFile } from '@/lib/api';
+import { Edit2, Check, X, FileText } from 'lucide-react';
 
 function formatElapsed(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -39,8 +41,14 @@ export default function WorkspaceDetailView({ workspace }) {
   const [editedName, setEditedName] = useState(workspace.name || '');
   const [currentName, setCurrentName] = useState(workspace.name || null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showFilesDialog, setShowFilesDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState('AGENTS.md');
+  const [fileContent, setFileContent] = useState('');
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [fileError, setFileError] = useState(null);
 
   const runs = workspace.runs ?? [];
+  const availableFiles = ['AGENTS.md', 'CLAUDE.md', 'changelog.md', 'specification.md', 'agents.md'];
   const sorted = [...runs].sort(
     (a, b) => (Date.parse(b.startedAt ?? '') || 0) - (Date.parse(a.startedAt ?? '') || 0)
   );
@@ -63,6 +71,26 @@ export default function WorkspaceDetailView({ workspace }) {
   const handleCancelEdit = () => {
     setEditedName(currentName || '');
     setIsEditingName(false);
+  };
+
+  const handleOpenFiles = async () => {
+    setShowFilesDialog(true);
+    await loadFile('AGENTS.md');
+  };
+
+  const loadFile = async (filename) => {
+    setSelectedFile(filename);
+    setLoadingFile(true);
+    setFileError(null);
+    try {
+      const data = await getWorkspaceFile(workspace.workspaceId, filename);
+      setFileContent(data.content);
+    } catch (err) {
+      setFileError(err.message || 'Failed to load file');
+      setFileContent('');
+    } finally {
+      setLoadingFile(false);
+    }
   };
 
   return (
@@ -109,6 +137,13 @@ export default function WorkspaceDetailView({ workspace }) {
                   )}
                 </h2>
                 <button
+                  onClick={handleOpenFiles}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  title="View workspace files"
+                >
+                  <FileText className="h-5 w-5" />
+                </button>
+                <button
                   onClick={() => setIsEditingName(true)}
                   className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
                   title="Edit name"
@@ -120,6 +155,44 @@ export default function WorkspaceDetailView({ workspace }) {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showFilesDialog} onOpenChange={setShowFilesDialog}>
+        <DialogContent onClose={() => setShowFilesDialog(false)}>
+          <DialogHeader>
+            <DialogTitle>Workspace Files</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="max-h-[70vh]">
+            <div className="mb-4 flex gap-2 border-b">
+              {availableFiles.map((file) => (
+                <button
+                  key={file}
+                  onClick={() => loadFile(file)}
+                  className={`px-4 py-2 text-sm font-medium transition ${
+                    selectedFile === file
+                      ? 'border-b-2 border-mint text-mint'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {file}
+                </button>
+              ))}
+            </div>
+            {loadingFile ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              </div>
+            ) : fileError ? (
+              <div className="rounded-lg bg-rose-50 p-4 text-sm text-rose-700">
+                {fileError}
+              </div>
+            ) : (
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown>{fileContent}</ReactMarkdown>
+              </div>
+            )}
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

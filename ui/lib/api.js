@@ -32,3 +32,7 @@ export async function updateWorkspace(workspaceId, data) {
     body: JSON.stringify(data)
   });
 }
+
+export async function getWorkspaceFile(workspaceId, filename) {
+  return request(`/workspaces/${workspaceId}/files/${filename}`);
+}
