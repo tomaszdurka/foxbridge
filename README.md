@@ -29,9 +29,8 @@ By using FoxBridge, you acknowledge and accept these risks and responsibilities.
 ## Quick Start
 
 ```bash
-# Install dependencies
-npm install
-cd ui && npm install && cd ..
+# Install dependencies for both projects
+npm run install:all
 
 # Start API server
 npm run dev:api
