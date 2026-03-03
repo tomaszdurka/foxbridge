@@ -73,10 +73,12 @@ export class PersistenceService {
   async createWorkspace(payload: {
     workspaceId: string;
     workingDir: string;
+    name?: string;
   }): Promise<Workspace> {
     const workspace = this.em.create(Workspace, {
       workspaceId: payload.workspaceId,
       workingDir: payload.workingDir,
+      name: payload.name,
     });
     await this.em.persist(workspace);
     await this.em.flush();
@@ -133,5 +135,23 @@ export class PersistenceService {
    */
   async findRunWithEvents(payload: { runId: string }): Promise<Run | null> {
     return this.em.findOne(Run, { runId: payload.runId }, { populate: ['events', 'workspace'] });
+  }
+
+  /**
+   * Update a workspace
+   */
+  async updateWorkspace(payload: {
+    workspaceId: string;
+    name?: string | null;
+  }): Promise<Workspace | null> {
+    const workspace = await this.em.findOne(Workspace, { workspaceId: payload.workspaceId });
+    if (!workspace) return null;
+
+    if (payload.name !== undefined) {
+      workspace.name = payload.name;
+    }
+
+    await this.em.flush();
+    return workspace;
   }
 }

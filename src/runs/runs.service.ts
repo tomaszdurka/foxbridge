@@ -19,9 +19,10 @@ export class RunsService {
   /**
    * Create a new workspace directory for execution or use existing one
    * @param existingWorkspaceId - Optional existing workspace ID to reuse
+   * @param name - Optional workspace name (only used when creating new workspace)
    * @throws Error if existingWorkspaceId is provided but doesn't exist
    */
-  async ensureWorkspace(existingWorkspaceId?: string): Promise<Pick<Workspace, 'workspaceId' | 'workingDir'>> {
+  async ensureWorkspace(existingWorkspaceId?: string, name?: string): Promise<Pick<Workspace, 'workspaceId' | 'workingDir'>> {
     const workspaceId = existingWorkspaceId || uuidv4();
     const workingDir = path.join(this.workspacesDir, workspaceId);
 
@@ -36,17 +37,19 @@ export class RunsService {
       await this.persistence.createWorkspace({
           workspaceId,
           workingDir,
+          name,
       });
     }
     return { workspaceId, workingDir };
   }
 
-  async createRun({workspaceId: optionalWorkspaceId, prompt, outputSchema}: {
+  async createRun({workspaceId: optionalWorkspaceId, workspaceName, prompt, outputSchema}: {
     workspaceId?: string;
+    workspaceName?: string;
     prompt: string;
     outputSchema?: object;
   }) {
-    const { workspaceId, workingDir } = await this.ensureWorkspace(optionalWorkspaceId);
+    const { workspaceId, workingDir } = await this.ensureWorkspace(optionalWorkspaceId, workspaceName);
     return this.persistence.createRun({
       workspaceId,
       prompt,

@@ -1,9 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { updateWorkspace } from '@/lib/api';
+import { Edit2, Check, X } from 'lucide-react';
 
 function formatElapsed(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -31,13 +35,92 @@ function statusBadgeClass(status) {
 }
 
 export default function WorkspaceDetailView({ workspace }) {
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(workspace.name || '');
+  const [currentName, setCurrentName] = useState(workspace.name || null);
+  const [isSaving, setIsSaving] = useState(false);
+
   const runs = workspace.runs ?? [];
   const sorted = [...runs].sort(
     (a, b) => (Date.parse(b.startedAt ?? '') || 0) - (Date.parse(a.startedAt ?? '') || 0)
   );
 
+  const handleSaveName = async () => {
+    setIsSaving(true);
+    try {
+      await updateWorkspace(workspace.workspaceId, {
+        name: editedName.trim() || null
+      });
+      setCurrentName(editedName.trim() || null);
+      setIsEditingName(false);
+    } catch (err) {
+      console.error('Failed to update workspace name:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedName(currentName || '');
+    setIsEditingName(false);
+  };
+
   return (
     <div className="space-y-5">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-3">
+            {isEditingName ? (
+              <>
+                <Input
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  placeholder="Workspace name"
+                  className="flex-1 text-lg font-semibold"
+                  autoFocus
+                  disabled={isSaving}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveName();
+                    if (e.key === 'Escape') handleCancelEdit();
+                  }}
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={isSaving}
+                  className="p-2 text-green-700 hover:bg-green-50 rounded-lg transition"
+                  title="Save"
+                >
+                  <Check className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={isSaving}
+                  className="p-2 text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                  title="Cancel"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="flex-1 text-2xl font-bold tracking-tight">
+                  {currentName || (
+                    <span className="text-muted-foreground italic">Unnamed Workspace</span>
+                  )}
+                </h2>
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  title="Edit name"
+                >
+                  <Edit2 className="h-5 w-5" />
+                </button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Workspace Info</CardTitle>

@@ -1,1 +1,1 @@
-// No DTOs - using entities directly
+export * from './update-workspace.dto';

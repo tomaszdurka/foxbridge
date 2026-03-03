@@ -14,6 +14,10 @@ export class Workspace {
   @Property()
   workingDir!: string;
 
+  @ApiProperty({ description: 'Workspace name', required: false, nullable: true })
+  @Property({ nullable: true })
+  name?: string | null;
+
   @ApiProperty({ description: 'Workspace creation timestamp' })
   @Property({ onCreate: () => new Date() })
   createdAt!: Date;

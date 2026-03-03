@@ -28,4 +28,13 @@ export class RunDto {
   @IsOptional()
   @Matches(/^[a-f0-9-]+$/, { message: 'workspaceId must be a valid UUID format (alphanumeric and hyphens only)' })
   workspaceId?: string;
+
+  @ApiProperty({
+    description: 'Optional workspace name (only used when creating a new workspace)',
+    required: false,
+    example: 'My Project Workspace'
+  })
+  @IsString()
+  @IsOptional()
+  workspaceName?: string;
 }

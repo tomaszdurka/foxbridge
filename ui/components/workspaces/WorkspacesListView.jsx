@@ -10,7 +10,8 @@ export default function WorkspacesListView({ workspaces }) {
 
   return (
     <Card className="overflow-hidden">
-      <div className="grid gap-3 border-b bg-muted/40 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_100px_190px_190px]">
+      <div className="grid gap-3 border-b bg-muted/40 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_100px_190px_190px]">
+        <span>Name</span>
         <span>Workspace ID</span>
         <span>Working Dir</span>
         <span>Runs</span>
@@ -24,9 +25,16 @@ export default function WorkspacesListView({ workspaces }) {
               href={`/workspaces/${workspace.workspaceId}`}
               className="block px-4 py-4 transition hover:bg-muted/40"
             >
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_100px_190px_190px]">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_100px_190px_190px]">
                 <div className="min-w-0">
-                  <p className="truncate font-mono text-sm font-semibold">{workspace.workspaceId}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {workspace.name || (
+                      <span className="text-muted-foreground italic font-normal">Unnamed</span>
+                    )}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-xs text-muted-foreground">{workspace.workspaceId}</p>
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-xs text-muted-foreground">{workspace.workingDir || '-'}</p>
