@@ -88,7 +88,7 @@ export class RunsController {
       runId: run.runId,
       sessionId: session.sessionId,
       workingDir: workspace.workingDir,
-      outputSchema: dto.schema,
+      schema: dto.schema,
     }).catch(err => {
       console.error(`Error in background job ${run.runId}:`, err);
     });
@@ -141,7 +141,7 @@ export class RunsController {
       runId: run.runId,
       sessionId: session.sessionId,
       workingDir: workspace.workingDir,
-      outputSchema: dto.schema,
+      schema: dto.schema,
       onOutput: isStreaming ? writeEvent : undefined,
     });
 

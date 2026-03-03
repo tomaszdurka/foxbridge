@@ -1,19 +1,18 @@
-import {Inject, Injectable, Logger} from '@nestjs/common';
-import {RunsService} from '../runs/runs.service';
+import {Injectable, Logger} from '@nestjs/common';
 import path from "node:path";
 import * as fs from "node:fs";
 import {enhancePrompt} from "../lib/enhancePrompt";
 import {PersistenceService} from "../database/persistence.service";
 import {RunStatus} from "../database/entities";
 import { Run } from '../database/entities';
-import {CommandService} from "../command/command.service";
+import {executeCommandWithJsonStreamOutput} from "../lib/executeCommandWithJsonStreamOutput";
 
 export type RunOptions = {
   prompt: string;
   runId: string;
   sessionId: string;
   workingDir: string;
-  outputSchema?: Record<string, unknown>;
+  schema?: Record<string, unknown>;
   onOutput?: (line: unknown) => void;
 }
 
@@ -22,7 +21,6 @@ export class ClaudeService {
   private readonly logger = new Logger(ClaudeService.name);
 
   constructor(
-      private readonly commandService: CommandService,
       private readonly persistence: PersistenceService,
   ) {}
 
@@ -75,8 +73,8 @@ Please refer to:
     );
 
     // Add schema if provided
-    if (options.outputSchema) {
-      args.push('--json-schema', JSON.stringify(options.outputSchema));
+    if (options.schema) {
+      args.push('--json-schema', JSON.stringify(options.schema));
     }
 
     // Strip Claude environment variables to avoid nesting issues
@@ -89,7 +87,7 @@ Please refer to:
     let result: any = null;
 
     let sequence = 0
-    const code = await this.commandService.executeCommandWithJsonStreamOutput({
+    const code = await executeCommandWithJsonStreamOutput({
       command: 'claude',
       args,
       cwd: options.workingDir,
