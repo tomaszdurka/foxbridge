@@ -58,13 +58,13 @@ export class WorkspacesController {
   @Get(':workspaceId/files/:filename')
   @ApiOperation({
     summary: 'Read workspace file',
-    description: 'Read specific markdown files from the workspace directory (changelog.md, specification.md, agents.md, AGENTS.md, CLAUDE.md)'
+    description: 'Read specific markdown files from the workspace directory (CHANGELOG.md, SPECIFICATION.md, AGENTS.md)'
   })
   @ApiParam({ name: 'workspaceId', description: 'Workspace ID', example: '550e8400-e29b-41d4-a716-446655440000' })
   @ApiParam({
     name: 'filename',
     description: 'File name',
-    enum: ['changelog.md', 'specification.md', 'agents.md', 'AGENTS.md', 'CLAUDE.md'],
+    enum: ['CHANGELOG.md', 'SPECIFICATION.md', 'AGENTS.md'],
     example: 'AGENTS.md'
   })
   @ApiResponse({ status: 200, description: 'File content', schema: { type: 'object', properties: { content: { type: 'string' } } } })
@@ -75,7 +75,7 @@ export class WorkspacesController {
     @Param('filename') filename: string
   ): Promise<{ content: string; filename: string }> {
     // Whitelist of allowed files
-    const allowedFiles = ['changelog.md', 'specification.md', 'agents.md', 'AGENTS.md', 'CLAUDE.md'];
+    const allowedFiles = ['CHANGELOG.md', 'SPECIFICATION.md', 'AGENTS.md'];
 
     if (!allowedFiles.includes(filename)) {
       throw new BadRequestException(`File ${filename} is not allowed. Allowed files: ${allowedFiles.join(', ')}`);
