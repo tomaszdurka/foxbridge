@@ -120,7 +120,7 @@ export default function RunDetailView({ run }) {
             <span className="ml-2">
               {run.workspace ? (
                 <Link href={`/workspaces/${run.workspace.workspaceId}`} className="text-mint hover:underline font-mono text-xs">
-                  {run.workspace.workspaceId}
+                  {run.workspace.name || run.workspace.workspaceId}
                 </Link>
               ) : (
                 '-'
@@ -129,8 +129,14 @@ export default function RunDetailView({ run }) {
           </p>
           <p>
             <span className="grid-label">Session:</span>{' '}
-            <span className="ml-2 font-mono text-xs">
-              {run.session?.sessionId || '-'}
+            <span className="ml-2">
+              {run.session?.sessionId ? (
+                <Link href={`/sessions/${run.session.sessionId}`} className="text-mint hover:underline font-mono text-xs">
+                  {run.session.sessionId}
+                </Link>
+              ) : (
+                '-'
+              )}
             </span>
           </p>
           <p>

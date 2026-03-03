@@ -46,6 +46,7 @@ export default function RunsListView({ runs }) {
         return (
           String(run.runId).toLowerCase().includes(q)
           || String(run.prompt ?? '').toLowerCase().includes(q)
+          || String(run.workspace?.name ?? '').toLowerCase().includes(q)
           || String(run.workspace?.workspaceId ?? '').toLowerCase().includes(q)
         );
       })
@@ -103,7 +104,7 @@ export default function RunsListView({ runs }) {
                     <Badge variant="outline" className={statusBadgeClass(run.status)}>{run.status}</Badge>
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-mono">{run.workspace?.workspaceId ?? '-'}</p>
+                    <p className="truncate text-xs font-mono">{run.workspace?.name || run.workspace?.workspaceId || '-'}</p>
                   </div>
                   <div className="text-xs">{elapsedForRun(run)}</div>
                   <div className="text-xs text-muted-foreground">{run.startedAt}</div>

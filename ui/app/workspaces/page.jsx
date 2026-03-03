@@ -18,6 +18,9 @@ export default async function WorkspacesPage() {
         <div className="ds-label mb-2">FoxBridge</div>
         <h1 className="ds-title">Workspaces</h1>
         <div className="mt-3 flex items-center gap-4 text-sm">
+          <Link href="/sessions" className="text-mint hover:underline">
+            View Sessions
+          </Link>
           <Link href="/" className="text-mint hover:underline">
             View Runs
           </Link>

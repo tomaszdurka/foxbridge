@@ -21,6 +21,9 @@ export default async function Home() {
           <Link href="/workspaces" className="text-mint hover:underline">
             View Workspaces
           </Link>
+          <Link href="/sessions" className="text-mint hover:underline">
+            View Sessions
+          </Link>
         </div>
       </header>
 

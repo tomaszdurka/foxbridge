@@ -78,6 +78,23 @@ export class PersistenceService {
   }
 
   /**
+   * Get all sessions
+   */
+  async findAllSessions(): Promise<Session[]> {
+    return this.em.find(Session, {}, {
+      orderBy: { createdAt: 'DESC' },
+      populate: ['workspace', 'runs']
+    });
+  }
+
+  /**
+   * Get session with runs
+   */
+  async findSessionWithRuns(payload: { sessionId: string }): Promise<Session | null> {
+    return this.em.findOne(Session, { sessionId: payload.sessionId }, { populate: ['workspace', 'runs'] });
+  }
+
+  /**
    * Retrieve a workspace
    */
   async getWorkspace(payload: { workspaceId: string }): Promise<Workspace | null> {
@@ -151,7 +168,7 @@ export class PersistenceService {
    * Get workspace with runs
    */
   async findWorkspaceWithRuns(payload: { id: string }): Promise<Workspace | null> {
-    return this.em.findOne(Workspace, { workspaceId: payload.id }, { populate: ['runs'] });
+    return this.em.findOne(Workspace, { workspaceId: payload.id }, { populate: ['runs', 'runs.session'] });
   }
 
   /**

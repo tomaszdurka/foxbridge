@@ -22,11 +22,6 @@ export default async function RunDetailPage({ params }) {
           <Link href="/" className="text-mint hover:underline">
             ← Back to Runs
           </Link>
-          {run?.workspace && (
-            <Link href={`/workspaces/${run.workspace.workspaceId}`} className="text-mint hover:underline">
-              View Workspace
-            </Link>
-          )}
         </div>
       </header>
 

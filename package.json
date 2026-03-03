@@ -5,9 +5,11 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",
-    "start": "node dist/main.js",
-    "start:dev": "nest start --watch",
-    "start:prod": "node dist/main.js"
+    "build:ui": "cd ui && next build",
+    "dev:api": "nest start --watch",
+    "dev:ui": "cd ui && next dev -p 3101",
+    "start:api": "node dist/main.js",
+    "start:ui": "cd ui && next start -p 3101"
   },
   "keywords": [
     "claude",

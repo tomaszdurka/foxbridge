@@ -44,3 +44,11 @@ export async function queueRun(data) {
     body: JSON.stringify(data)
   });
 }
+
+export async function listSessions() {
+  return request('/sessions');
+}
+
+export async function getSession(sessionId) {
+  return request(`/sessions/${sessionId}`);
+}

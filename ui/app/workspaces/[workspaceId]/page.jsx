@@ -22,9 +22,6 @@ export default async function WorkspaceDetailPage({ params }) {
           <Link href="/workspaces" className="text-mint hover:underline">
             ← Back to Workspaces
           </Link>
-          <Link href="/" className="text-mint hover:underline">
-            View All Runs
-          </Link>
         </div>
       </header>
 

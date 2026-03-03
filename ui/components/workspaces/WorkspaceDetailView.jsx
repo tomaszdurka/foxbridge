@@ -8,37 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 import { updateWorkspace, getWorkspaceFile, queueRun } from '@/lib/api';
 import { Edit2, Check, X, FileText, Play } from 'lucide-react';
-
-function formatElapsed(ms) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
-}
-
-function elapsedForRun(run) {
-  const started = Date.parse(run.startedAt ?? '');
-  if (!started) return '-';
-  const completed = run.completedAt ? Date.parse(run.completedAt) : null;
-  const endTs = completed || Date.now();
-  return formatElapsed(endTs - started);
-}
-
-function statusBadgeClass(status) {
-  if (status === 'success') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-  if (status === 'running') return 'bg-blue-100 text-blue-800 border-blue-200';
-  if (status === 'failure') return 'bg-rose-100 text-rose-900 border-rose-200';
-  if (status === 'stopped') return 'bg-amber-100 text-amber-800 border-amber-200';
-  return 'bg-slate-100 text-slate-700 border-slate-200';
-}
 
 export default function WorkspaceDetailView({ workspace }) {
   const [isEditingName, setIsEditingName] = useState(false);
@@ -56,13 +29,9 @@ export default function WorkspaceDetailView({ workspace }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [runError, setRunError] = useState(null);
   const [runSuccess, setRunSuccess] = useState(null);
-  const [selectedSessionId, setSelectedSessionId] = useState('new');
 
   const runs = workspace.runs ?? [];
   const availableFiles = ['AGENTS.md', 'SPECIFICATION.md', 'CHANGELOG.md'];
-  const sorted = [...runs].sort(
-    (a, b) => (Date.parse(b.startedAt ?? '') || 0) - (Date.parse(a.startedAt ?? '') || 0)
-  );
 
   // Extract unique sessions from runs
   const sessions = useMemo(() => {
@@ -151,20 +120,11 @@ export default function WorkspaceDetailView({ workspace }) {
         }
       }
 
-      const payload = {
+      const result = await queueRun({
         prompt: runPrompt,
         schema,
-      };
-
-      if (selectedSessionId === 'new') {
-        // Create new session in workspace
-        payload.workspaceId = workspace.workspaceId;
-      } else {
-        // Continue existing session
-        payload.sessionId = selectedSessionId;
-      }
-
-      const result = await queueRun(payload);
+        workspaceId: workspace.workspaceId, // Always create new session
+      });
 
       setRunSuccess(`Job queued successfully! Run ID: ${result.runId}`);
       setRunPrompt('');
@@ -345,7 +305,7 @@ export default function WorkspaceDetailView({ workspace }) {
       <Dialog open={showRunDialog} onOpenChange={setShowRunDialog}>
         <DialogContent onClose={() => setShowRunDialog(false)}>
           <DialogHeader>
-            <DialogTitle>Run Prompt in Workspace</DialogTitle>
+            <DialogTitle>New Run (Creates New Session)</DialogTitle>
           </DialogHeader>
           <DialogBody>
             <div className="space-y-4">
@@ -360,24 +320,6 @@ export default function WorkspaceDetailView({ workspace }) {
                   className="w-full min-h-[120px] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
                   disabled={isSubmitting}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Session
-                </label>
-                <Select value={selectedSessionId} onValueChange={setSelectedSessionId} disabled={isSubmitting}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New Session</SelectItem>
-                    {sessions.map((session) => (
-                      <SelectItem key={session.sessionId} value={session.sessionId}>
-                        Continue session {session.sessionId.slice(0, 8)}... ({session.runCount} run{session.runCount !== 1 ? 's' : ''})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">
@@ -423,58 +365,38 @@ export default function WorkspaceDetailView({ workspace }) {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Sessions & Runs ({sessions.length} session{sessions.length !== 1 ? 's' : ''}, {sorted.length} run{sorted.length !== 1 ? 's' : ''})</CardTitle>
-          </div>
+          <CardTitle className="text-base">Sessions ({sessions.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {sessions.length === 0 ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">
-              No runs found for this workspace.
-            </div>
-          ) : (
-            <div className="divide-y">
-              {sessions.map((session) => {
-                const sessionRuns = sorted.filter(r => r.session?.sessionId === session.sessionId);
-                return (
-                  <div key={session.sessionId} className="p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-                        Session
-                      </Badge>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {session.sessionId.slice(0, 8)}...
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        · {session.runCount} run{session.runCount !== 1 ? 's' : ''}
-                      </span>
+          <div className="grid gap-3 border-b bg-muted/40 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground lg:grid-cols-[minmax(0,2fr)_100px_190px]">
+            <span>Session ID</span>
+            <span>Runs</span>
+            <span>Last Activity</span>
+          </div>
+          <ul className="divide-y">
+            {sessions.map((session) => (
+              <li key={session.sessionId}>
+                <Link href={`/sessions/${session.sessionId}`} className="block px-4 py-4 transition hover:bg-muted/40">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_100px_190px]">
+                    <div className="min-w-0">
+                      <p className="truncate font-mono text-sm font-semibold">{session.sessionId}</p>
                     </div>
-                    <ul className="divide-y border-l-2 border-indigo-200">
-                      {sessionRuns.map((run) => (
-                        <li key={run.runId}>
-                          <Link href={`/runs/${run.runId}`} className="block px-4 py-3 transition hover:bg-muted/40">
-                            <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_110px_110px_190px]">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">{run.prompt || 'No prompt'}</p>
-                                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{run.runId}</p>
-                              </div>
-                              <div className="flex items-center">
-                                <Badge variant="outline" className={statusBadgeClass(run.status)}>
-                                  {run.status}
-                                </Badge>
-                              </div>
-                              <div className="text-xs">{elapsedForRun(run)}</div>
-                              <div className="text-xs text-muted-foreground">{run.startedAt}</div>
-                            </div>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="text-sm">
+                      <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                        {session.runCount} run{session.runCount !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">{session.lastUsed}</div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </Link>
+              </li>
+            ))}
+            {sessions.length === 0 ? (
+              <li className="p-10 text-center text-sm text-muted-foreground">
+                No sessions in this workspace yet.
+              </li>
+            ) : null}
+          </ul>
         </CardContent>
       </Card>
     </div>
