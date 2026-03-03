@@ -1,12 +1,8 @@
-import { Controller, Get, Param, Patch, Body, Post, Res, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Body, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
-import { Response } from 'express';
 import { PersistenceService } from '../database/persistence.service';
-import { ClaudeService } from '../claude/claude.service';
-import { RunsService } from '../runs/runs.service';
-import { Workspace, Run } from '../database/entities';
+import { Workspace } from '../database/entities';
 import { UpdateWorkspaceDto } from './dto';
-import { RunDto } from '../runs/dto/run.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -15,8 +11,6 @@ import * as path from 'path';
 export class WorkspacesController {
   constructor(
     private readonly db: PersistenceService,
-    @Inject(ClaudeService) private readonly claude: ClaudeService,
-    @Inject(RunsService) private readonly runs: RunsService,
   ) {}
 
   @Get()
@@ -102,113 +96,5 @@ export class WorkspacesController {
 
     const content = fs.readFileSync(filePath, 'utf-8');
     return { content, filename };
-  }
-
-  @Post(':workspaceId/runs/queue')
-  @ApiOperation({
-    summary: 'Queue run in workspace (new session)',
-    description: 'Create a new session in the workspace and queue a run. Returns immediately with 201 Created.'
-  })
-  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', example: '550e8400-e29b-41d4-a716-446655440000' })
-  @ApiBody({ type: RunDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Job queued successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        runId: { type: 'string' },
-        sessionId: { type: 'string' },
-        workspaceId: { type: 'string' },
-        status: { type: 'string' },
-      }
-    }
-  })
-  @ApiResponse({ status: 404, description: 'Workspace not found' })
-  async queueRunInWorkspace(
-    @Param('workspaceId') workspaceId: string,
-    @Body() dto: RunDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    const workspace = await this.db.getWorkspace({ workspaceId });
-    if (!workspace) {
-      throw new NotFoundException(`Workspace ${workspaceId} not found`);
-    }
-
-    // Create new session
-    const session = await this.db.createSession({ workspaceId });
-
-    // Create run
-    const run = await this.db.createRun({
-      prompt: dto.prompt,
-      sessionId: session.sessionId,
-      workspaceId,
-      outputSchema: dto.schema,
-    });
-
-    // Start the job asynchronously (don't await)
-    this.claude.run({
-      prompt: dto.prompt,
-      runId: run.runId,
-      sessionId: session.sessionId,
-      workingDir: workspace.workingDir,
-      outputSchema: dto.schema,
-    }).catch(err => {
-      console.error(`Error in background job ${run.runId}:`, err);
-    });
-
-    res.status(201).json({
-      runId: run.runId,
-      sessionId: session.sessionId,
-      workspaceId,
-      status: 'queued',
-    });
-  }
-
-  @Post(':workspaceId/runs')
-  @ApiOperation({
-    summary: 'Execute run in workspace (new session)',
-    description: 'Create a new session in the workspace and execute a run. Supports streaming.'
-  })
-  @ApiParam({ name: 'workspaceId', description: 'Workspace ID', example: '550e8400-e29b-41d4-a716-446655440000' })
-  @ApiBody({ type: RunDto })
-  @ApiResponse({ status: 200, description: 'Run completed' })
-  @ApiResponse({ status: 404, description: 'Workspace not found' })
-  async executeRunInWorkspace(
-    @Param('workspaceId') workspaceId: string,
-    @Body() dto: RunDto,
-    @Res() res: Response,
-  ): Promise<void> {
-    const workspace = await this.db.getWorkspace({ workspaceId });
-    if (!workspace) {
-      throw new NotFoundException(`Workspace ${workspaceId} not found`);
-    }
-
-    // Create new session
-    const session = await this.db.createSession({ workspaceId });
-
-    // Create run
-    const run = await this.db.createRun({
-      prompt: dto.prompt,
-      sessionId: session.sessionId,
-      workspaceId,
-      outputSchema: dto.schema,
-    });
-
-    const result = await this.claude.run({
-      prompt: dto.prompt,
-      runId: run.runId,
-      sessionId: session.sessionId,
-      workingDir: workspace.workingDir,
-      outputSchema: dto.schema,
-    });
-
-    res.json({
-      timestamp: new Date().toISOString(),
-      workspaceId,
-      sessionId: session.sessionId,
-      runId: run.runId,
-      ...(result as any)
-    });
   }
 }

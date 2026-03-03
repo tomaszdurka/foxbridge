@@ -6,6 +6,7 @@ import {enhancePrompt} from "../lib/enhancePrompt";
 import {PersistenceService} from "../database/persistence.service";
 import {RunStatus} from "../database/entities";
 import { Run } from '../database/entities';
+import {CommandService} from "../command/command.service";
 
 export type RunOptions = {
   prompt: string;
@@ -21,7 +22,7 @@ export class ClaudeService {
   private readonly logger = new Logger(ClaudeService.name);
 
   constructor(
-      @Inject(RunsService) private readonly runsService: RunsService,
+      private readonly commandService: CommandService,
       private readonly persistence: PersistenceService,
   ) {}
 
@@ -88,7 +89,7 @@ Please refer to:
     let result: any = null;
 
     let sequence = 0
-    const code = await this.runsService.executeJsonStream({
+    const code = await this.commandService.executeCommandWithJsonStreamOutput({
       command: 'claude',
       args,
       cwd: options.workingDir,
