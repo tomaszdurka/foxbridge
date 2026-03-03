@@ -142,9 +142,7 @@ export class RunsController {
       onOutput: isStreaming ? writeEvent : undefined,
     });
 
-    if (!isStreaming) {
-      writeEvent(result);
-    }
+    writeEvent(result);
 
     res.end();
   }

@@ -74,7 +74,12 @@ Please refer to:
       env,
       onLine: (event: any) => {
         if (event.type === 'result' || event.type === 'result_success') {
-          result = event;
+          result = {
+            result: event.result,
+          };
+          if (event.structured_output) {
+            result.structuredResult = event.structured_output
+          }
         }
         sequence++;
         options.onOutput?.(event);
