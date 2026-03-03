@@ -16,32 +16,49 @@ export class RunsService {
   private readonly logger = new Logger(RunsService.name);
   private readonly workspacesDir = process.env.WORKSPACES_DIR || path.join(process.cwd(), 'workspaces');
 
-  /**
-   * Create a new workspace directory for execution or use existing one
-   * @param existingWorkspaceId - Optional existing workspace ID to reuse
-   * @param name - Optional workspace name (only used when creating new workspace)
-   * @throws Error if existingWorkspaceId is provided but doesn't exist
-   */
   async ensureWorkspace(existingWorkspaceId?: string, name?: string): Promise<Pick<Workspace, 'workspaceId' | 'workingDir'>> {
-    const workspaceId = existingWorkspaceId || uuidv4();
-    const workingDir = path.join(this.workspacesDir, workspaceId);
-
     if (existingWorkspaceId) {
       // Validate that the workspace exists
+      // const workspace = await this.persistence.findWorkspace({workspaceId: existingWorkspaceId})
+      const workspace = await this.ensureLegacyDirectoryOnlyWorkspace(existingWorkspaceId)
+      if (!workspace) {
+        throw new BadRequestException(`Workspace ${existingWorkspaceId} does not exist`);
+      }
+      const {workspaceId, workingDir} = workspace
       if (!fs.existsSync(workingDir) || !fs.statSync(workingDir).isDirectory()) {
         throw new BadRequestException(`Workspace ${existingWorkspaceId} is not a directory`);
       }
+      return { workspaceId, workingDir };
     } else {
       // Create new workspace
-      fs.mkdirSync(workingDir, { recursive: true });
+      const workspaceId = uuidv4();
+      const workingDir = path.join(this.workspacesDir, workspaceId);
       await this.persistence.createWorkspace({
           workspaceId,
           workingDir,
           name,
       });
+      return { workspaceId, workingDir };
     }
-    return { workspaceId, workingDir };
   }
+
+  async ensureLegacyDirectoryOnlyWorkspace(workspaceId: string) {
+    const workspace = await this.persistence.findWorkspace({
+      workspaceId,
+    })
+    if (workspace) {
+      return workspace
+    }
+    const workingDir = path.join(this.workspacesDir, workspaceId);
+    if (!fs.existsSync(workingDir) || !fs.statSync(workingDir).isDirectory()) {
+      return null
+    }
+    return this.persistence.createWorkspace({
+      workspaceId,
+      workingDir,
+    });
+  }
+
 
   async createRun({workspaceId: optionalWorkspaceId, workspaceName, prompt, outputSchema}: {
     workspaceId?: string;
@@ -49,7 +66,7 @@ export class RunsService {
     prompt: string;
     outputSchema?: object;
   }) {
-    const { workspaceId, workingDir } = await this.ensureWorkspace(optionalWorkspaceId, workspaceName);
+    const { workspaceId } = await this.ensureWorkspace(optionalWorkspaceId, workspaceName);
     return this.persistence.createRun({
       workspaceId,
       prompt,

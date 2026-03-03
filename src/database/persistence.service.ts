@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/core';
 import { RunStatus, Workspace, Run, RunEvent } from './entities';
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from "node:fs";
 
 @Injectable()
 export class PersistenceService {
@@ -26,7 +27,8 @@ export class PersistenceService {
         sequence: payload.sequence,
         source: 'stdout',
       });
-      await this.em.persistAndFlush(event);
+      this.em.persist(event);
+      await this.em.flush();
     } catch (error) {
       this.logger.error(`Failed to store event for run ${payload.runId}:`, error);
     }
@@ -80,7 +82,8 @@ export class PersistenceService {
       workingDir: payload.workingDir,
       name: payload.name,
     });
-    await this.em.persist(workspace);
+    fs.mkdirSync(payload.workingDir, { recursive: true });
+    this.em.persist(workspace);
     await this.em.flush();
     return workspace;
   }
@@ -101,7 +104,7 @@ export class PersistenceService {
       outputSchema: payload.outputSchema,
       status: RunStatus.RUNNING,
     });
-    await this.em.persist(run);
+    this.em.persist(run);
     await this.em.flush();
     return run;
   }
@@ -111,6 +114,13 @@ export class PersistenceService {
    */
   async findAllWorkspaces(): Promise<Workspace[]> {
     return this.em.find(Workspace, {}, { orderBy: { createdAt: 'DESC' } });
+  }
+
+  /**
+   * Get workspace with runs
+   */
+  async findWorkspace(payload: { workspaceId: string }): Promise<Workspace | null> {
+    return this.em.findOne(Workspace, { workspaceId: payload.workspaceId });
   }
 
   /**
