@@ -1,12 +1,11 @@
 import {Injectable, Logger} from '@nestjs/common';
 import {PersistenceService} from "../database/persistence.service";
-import {Run, RunStatus} from "../database/entities";
-import path from "node:path";
-import fs from "node:fs";
+import {RunStatus} from "../database/entities";
 import {enhancePrompt} from "../lib/enhancePrompt";
-import {executeCommandWithJsonStreamOutput} from "../lib/executeCommandWithJsonStreamOutput";
 import {RunOptions} from "./dto/run-options";
 import {ClaudeService} from "../claude/claude.service";
+import {GeminiService} from "../gemini/gemini.service";
+import {CodexService} from "../codex/codex.service";
 
 
 @Injectable()
@@ -15,6 +14,7 @@ export class RunsService {
   constructor(
       private readonly persistence: PersistenceService,
       private readonly claudeService: ClaudeService,
+      private readonly codexService: CodexService,
   ) {
   }
   private readonly logger = new Logger(RunsService.name);
@@ -23,12 +23,15 @@ export class RunsService {
     if (provider === 'claude') {
         return this.claudeService.run(options)
     }
+    if (provider === 'codex') {
+        return this.codexService.run(options)
+    }
     throw new Error('Invalid provider');
   }
 
 
   async run(options: RunOptions): Promise<unknown> {
-    const provider = 'claude'
+    const provider = 'codex'
     const {run, session, workspace} = options
     const {runId, prompt} = run
 

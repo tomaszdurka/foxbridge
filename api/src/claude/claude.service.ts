@@ -3,14 +3,14 @@ import path from "node:path";
 import * as fs from "node:fs";
 import { Run } from '../database/entities';
 import {executeCommandWithJsonStreamOutput} from "../lib/executeCommandWithJsonStreamOutput";
-import {RunOptions} from "../runs/dto/run-options";
+import {RunOptions, RunResult} from "../runs/dto/run-options";
 
 
 @Injectable()
 export class ClaudeService {
   private readonly logger = new Logger(ClaudeService.name);
 
-  async run(options: RunOptions): Promise<any> {
+  async run(options: RunOptions): Promise<RunResult> {
     const {run, session, workspace} = options;
     const {runId, prompt, outputSchema} = run;
 
@@ -66,7 +66,6 @@ Please refer to:
 
     let result: any = null;
 
-    let sequence = 0
     await executeCommandWithJsonStreamOutput({
       command: 'claude',
       args,
@@ -81,7 +80,6 @@ Please refer to:
             result.structuredResult = event.structured_output
           }
         }
-        sequence++;
         options.onOutput?.(event);
       },
     });

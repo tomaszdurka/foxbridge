@@ -6,3 +6,8 @@ export type RunOptions = {
     workspace: Workspace
     onOutput?: (line: unknown) => void;
 }
+
+export type RunResult = {
+    result: string;
+    structuredResult?: any
+}
