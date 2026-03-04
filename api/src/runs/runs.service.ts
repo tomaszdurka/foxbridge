@@ -14,6 +14,7 @@ export class RunsService {
   constructor(
       private readonly persistence: PersistenceService,
       private readonly claudeService: ClaudeService,
+      private readonly geminiService: GeminiService,
       private readonly codexService: CodexService,
   ) {
   }
@@ -23,6 +24,9 @@ export class RunsService {
     if (provider === 'claude') {
         return this.claudeService.run(options)
     }
+    if (provider === 'gemini') {
+        return this.geminiService.run(options)
+    }
     if (provider === 'codex') {
         return this.codexService.run(options)
     }
@@ -31,7 +35,7 @@ export class RunsService {
 
 
   async run(options: RunOptions): Promise<unknown> {
-    const provider = 'codex'
+    const provider = 'claude'
     const {run, session, workspace} = options
     const {runId, prompt} = run
 
