@@ -13,7 +13,7 @@ export enum RunStatus {
 
 @Entity()
 export class Run {
-  [OptionalProps]?: 'startedAt' | 'lastHeartbeat';
+  [OptionalProps]?: 'startedAt' | 'lastHeartbeat' | 'model';
 
   @ApiProperty({ description: 'Run unique identifier', example: '550e8400-e29b-41d4-a716-446655440000' })
   @PrimaryKey()
@@ -22,6 +22,10 @@ export class Run {
   @ApiProperty({ description: 'The prompt that was executed' })
   @Property({ type: 'text' })
   prompt!: string;
+
+  @ApiProperty({ description: 'Model used for this run', required: false })
+  @Property({ nullable: true })
+  model?: string;
 
   @ApiProperty({ description: 'Output JSON schema if provided', required: false })
   @Property({ type: 'json', nullable: true })

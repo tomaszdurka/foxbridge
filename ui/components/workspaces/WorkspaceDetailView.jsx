@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 import { updateWorkspace, getWorkspaceFile, queueRun } from '@/lib/api';
 import { Edit2, Check, X, FileText, Play } from 'lucide-react';
+import RunPromptDialog from '@/components/runs/RunPromptDialog';
 
 export default function WorkspaceDetailView({ workspace }) {
   const [isEditingName, setIsEditingName] = useState(false);
@@ -24,12 +25,6 @@ export default function WorkspaceDetailView({ workspace }) {
   const [loadingFile, setLoadingFile] = useState(false);
   const [fileError, setFileError] = useState(null);
   const [showRunDialog, setShowRunDialog] = useState(false);
-  const [runPrompt, setRunPrompt] = useState('');
-  const [runSchema, setRunSchema] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [runError, setRunError] = useState(null);
-  const [runSuccess, setRunSuccess] = useState(null);
-
   const runs = workspace.runs ?? [];
   const availableFiles = ['AGENTS.md', 'SPECIFICATION.md', 'CHANGELOG.md'];
 
@@ -98,49 +93,13 @@ export default function WorkspaceDetailView({ workspace }) {
     }
   };
 
-  const handleRunPrompt = async () => {
-    if (!runPrompt.trim()) {
-      setRunError('Prompt is required');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setRunError(null);
-    setRunSuccess(null);
-
-    try {
-      let schema = undefined;
-      if (runSchema.trim()) {
-        try {
-          schema = JSON.parse(runSchema);
-        } catch (err) {
-          setRunError('Invalid JSON schema format');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      const result = await queueRun({
-        prompt: runPrompt,
-        schema,
-        workspaceId: workspace.workspaceId, // Always create new session
-      });
-
-      setRunSuccess(`Job queued successfully! Run ID: ${result.runId}`);
-      setRunPrompt('');
-      setRunSchema('');
-
-      // Close dialog after 2 seconds
-      setTimeout(() => {
-        setShowRunDialog(false);
-        setRunSuccess(null);
-        window.location.reload(); // Refresh to show new run
-      }, 2000);
-    } catch (err) {
-      setRunError(err.message || 'Failed to queue job');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleRunSubmit = async ({ prompt, schema, model }) => {
+    return await queueRun({
+      prompt,
+      schema,
+      workspaceId: workspace.workspaceId, // Always create new session
+      model,
+    });
   };
 
   return (
@@ -302,66 +261,14 @@ export default function WorkspaceDetailView({ workspace }) {
         </CardContent>
       </Card>
 
-      <Dialog open={showRunDialog} onOpenChange={setShowRunDialog}>
-        <DialogContent onClose={() => setShowRunDialog(false)}>
-          <DialogHeader>
-            <DialogTitle>New Run (Creates New Session)</DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Prompt <span className="text-rose-600">*</span>
-                </label>
-                <textarea
-                  value={runPrompt}
-                  onChange={(e) => setRunPrompt(e.target.value)}
-                  placeholder="Enter your prompt here..."
-                  className="w-full min-h-[120px] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
-                  disabled={isSubmitting}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Output Schema (Optional JSON)
-                </label>
-                <textarea
-                  value={runSchema}
-                  onChange={(e) => setRunSchema(e.target.value)}
-                  placeholder='{"type": "object", "properties": {...}}'
-                  className="w-full min-h-[100px] rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-y"
-                  disabled={isSubmitting}
-                />
-              </div>
-              {runError && (
-                <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
-                  {runError}
-                </div>
-              )}
-              {runSuccess && (
-                <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
-                  {runSuccess}
-                </div>
-              )}
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowRunDialog(false)}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleRunPrompt}
-                  disabled={isSubmitting || !runPrompt.trim()}
-                >
-                  {isSubmitting ? 'Queuing...' : 'Run Prompt'}
-                </Button>
-              </div>
-            </div>
-          </DialogBody>
-        </DialogContent>
-      </Dialog>
+      <RunPromptDialog
+        open={showRunDialog}
+        onOpenChange={setShowRunDialog}
+        onSubmit={handleRunSubmit}
+        dialogTitle="New Run (Creates New Session)"
+        runs={runs}
+        submitButtonText="Run Prompt"
+      />
 
       <Card>
         <CardHeader>

@@ -135,6 +135,7 @@ export class PersistenceService {
     sessionId: string;
     workspaceId: string;
     outputSchema?: object;
+    model?: string;
   }): Promise<Run> {
     const runId = uuidv4();
     const run = this.em.create(Run, {
@@ -143,6 +144,7 @@ export class PersistenceService {
       session: { sessionId: payload.sessionId } as any,
       workspace: { workspaceId: payload.workspaceId } as any,
       outputSchema: payload.outputSchema,
+      model: payload.model,
       status: RunStatus.RUNNING,
     });
     this.em.persist(run);

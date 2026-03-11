@@ -58,6 +58,7 @@ export class RunsController {
       sessionId: session.sessionId,
       workspaceId: workspace.workspaceId,
       outputSchema: dto.schema,
+      model: dto.model,
     });
 
     return { run, session, workspace };

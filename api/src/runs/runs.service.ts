@@ -35,15 +35,31 @@ export class RunsService {
 
 
   async run(options: RunOptions): Promise<unknown> {
-    const provider = 'claude'
     const {run, session, workspace} = options
-    const {runId, prompt} = run
+    const {runId} = run
 
-    const enhancedPrompt = enhancePrompt(run);
+    let prompt = enhancePrompt(run);
+    let model = run.model;
+
+    if (session.runs.length > 0) {
+      const lastRun = session.runs[session.runs.length - 1];
+      const lastModel = lastRun.model
+      if (!model) {
+        model = lastModel
+      }
+      if (model !== lastModel) {
+        prompt = `IMPORTANT: The model has been switched from ${lastModel} to ${model}. Be aware that external changes may have occurred since the last run. Review the workspace state carefully before proceeding.\n\n`
+            + prompt
+      }
+    }
+
+    if (!model) {
+      model = 'claude'
+    }
 
     let sequence = 0
-    const result = await this.runProvider(provider, {
-      run: {...run, prompt: enhancedPrompt},
+    const result = await this.runProvider(model, {
+      run: {...run, prompt},
       session,
       workspace,
       onOutput: (event: any) => {

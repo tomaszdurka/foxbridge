@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsObject, IsOptional, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, IsObject, IsOptional, Matches, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RunDto {
@@ -38,4 +38,14 @@ export class RunDto {
   @IsOptional()
   @Matches(/^[a-f0-9-]+$/, { message: 'sessionId must be a valid UUID format' })
   sessionId?: string;
+
+  @ApiProperty({
+    description: 'Optional model to use (claude, gemini, or codex)',
+    required: false,
+    example: 'claude'
+  })
+  @IsString()
+  @IsOptional()
+  @IsIn(['claude', 'gemini', 'codex'], { message: 'model must be claude, gemini, or codex' })
+  model?: string;
 }

@@ -4,14 +4,10 @@
   "description": "Local Model API - Bridge to Claude CLI with workspace isolation",
   "private": true,
   "scripts": {
-    "build": "cd api && npm run build",
-    "build:ui": "cd ui && npm run build",
-    "build:all": "npm run build && npm run build:ui",
-    "dev:api": "cd api && npm run dev",
-    "dev:ui": "cd ui && npm run dev",
-    "start:api": "cd api && npm start",
-    "start:ui": "cd ui && npm start",
-    "install:all": "cd api && npm install && cd ../ui && npm install"
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "start": "pnpm -r --parallel start",
+    "install": "pnpm install"
   },
   "keywords": [
     "claude",
