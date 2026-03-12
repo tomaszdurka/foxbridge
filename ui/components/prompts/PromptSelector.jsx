@@ -86,7 +86,10 @@ export default function PromptSelector({ onSelect }) {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setShowCreateDialog(true)}
+                onClick={() => {
+                  setShowCreateDialog(true);
+                  setOpen(false);
+                }}
                 className="h-6 px-2 text-xs"
               >
                 <Plus className="h-3 w-3 mr-1" />
@@ -127,8 +130,8 @@ export default function PromptSelector({ onSelect }) {
         </PopoverContent>
       </Popover>
 
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent onClose={() => setShowCreateDialog(false)} className="max-w-md">
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog} className="max-w-2xl">
+        <DialogContent onClose={() => setShowCreateDialog(false)}>
           <DialogHeader>
             <DialogTitle>Create New Prompt</DialogTitle>
           </DialogHeader>
@@ -148,7 +151,7 @@ export default function PromptSelector({ onSelect }) {
                 placeholder="Prompt text"
                 value={newPrompt.prompt}
                 onChange={(e) => setNewPrompt({ ...newPrompt, prompt: e.target.value })}
-                className="w-full min-h-[120px] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
+                className="w-full min-h-[400px] max-h-[60vh] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
               />
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>

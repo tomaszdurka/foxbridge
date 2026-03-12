@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { X, Copy } from 'lucide-react';
+import { X, ArrowDownNarrowWide } from 'lucide-react';
 import PromptSelector from '@/components/prompts/PromptSelector';
 
 export default function RunPromptDialog({
@@ -142,15 +142,15 @@ export default function RunPromptDialog({
                   </Badge>
                   <button
                     onClick={handleCopyPromptToTextarea}
-                    className="ml-auto p-1 text-slate-600 hover:text-slate-900 transition"
+                    className="px-2 py-1 text-xs rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition flex items-center gap-1"
                     title="Copy to textarea to edit"
                     type="button"
                   >
-                    <Copy className="h-3.5 w-3.5" />
+                    <ArrowDownNarrowWide className="h-3 w-3" />
                   </button>
                   <button
                     onClick={handleRemoveSavedPrompt}
-                    className="p-1 text-slate-600 hover:text-rose-600 transition"
+                    className="ml-auto p-1 text-slate-600 hover:text-rose-600 transition"
                     title="Remove saved prompt"
                     type="button"
                   >

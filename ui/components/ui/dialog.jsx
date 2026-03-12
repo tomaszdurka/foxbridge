@@ -4,7 +4,7 @@ import * as React from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const Dialog = ({ open, onOpenChange, children }) => {
+const Dialog = ({ open, onOpenChange, children, className }) => {
   if (!open) return null;
 
   return (
@@ -13,7 +13,7 @@ const Dialog = ({ open, onOpenChange, children }) => {
         className="fixed inset-0 bg-black/50"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative z-50 max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className={cn("relative z-50 max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl", className)}>
         {children}
       </div>
     </div>
