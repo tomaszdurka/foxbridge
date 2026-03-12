@@ -3,10 +3,14 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Play } from 'lucide-react';
+import RunPromptDialog from '@/components/runs/RunPromptDialog';
+import { queueRun } from '@/lib/api';
 
 function formatElapsed(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -80,8 +84,22 @@ function EventRow({ event }) {
 export default function RunDetailView({ run }) {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [showContinueDialog, setShowContinueDialog] = useState(false);
+  const [isPromptExpanded, setIsPromptExpanded] = useState(false);
 
   const events = run.events ?? [];
+
+  const promptLines = (run.prompt || '').split('\n').length;
+  const isLongPrompt = promptLines > 5;
+
+  const handleContinueSession = async ({ prompt, schema, model }) => {
+    return await queueRun({
+      prompt,
+      schema,
+      sessionId: run.session?.sessionId,
+      model,
+    });
+  };
 
   const typeOptions = useMemo(() => {
     const types = events.map((e) => e.type);
@@ -104,7 +122,18 @@ export default function RunDetailView({ run }) {
     <div className="grid gap-5 lg:grid-cols-5">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle className="text-base">Run Metadata</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Run Metadata</CardTitle>
+            {run.session?.sessionId && (
+              <Button
+                onClick={() => setShowContinueDialog(true)}
+                size="sm"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Continue Session
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p>
@@ -155,8 +184,32 @@ export default function RunDetailView({ run }) {
           </p>
           <Separator />
           <div>
-            <p className="grid-label">Prompt</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm">{run.prompt || 'No prompt'}</p>
+            <p className="grid-label mb-2">Prompt</p>
+            <div className="relative">
+              <p className={`whitespace-pre-wrap text-sm ${!isPromptExpanded && isLongPrompt ? 'line-clamp-5' : ''}`}>
+                {run.prompt || 'No prompt'}
+              </p>
+              {isLongPrompt && !isPromptExpanded && (
+                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#f5f6fb] via-[#f5f6fb]/95 to-transparent flex items-end justify-center pb-2">
+                  <button
+                    onClick={() => setIsPromptExpanded(true)}
+                    className="text-xs font-medium text-mint hover:text-mint/80 transition"
+                  >
+                    Show more
+                  </button>
+                </div>
+              )}
+              {isLongPrompt && isPromptExpanded && (
+                <div className="flex justify-center mt-2">
+                  <button
+                    onClick={() => setIsPromptExpanded(false)}
+                    className="text-xs font-medium text-mint hover:text-mint/80 transition"
+                  >
+                    Show less
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -229,6 +282,15 @@ export default function RunDetailView({ run }) {
           </div>
         </CardContent>
       </Card>
+
+      <RunPromptDialog
+        open={showContinueDialog}
+        onOpenChange={setShowContinueDialog}
+        onSubmit={handleContinueSession}
+        dialogTitle="Continue Session"
+        runs={run.session?.runs || []}
+        submitButtonText="Run Prompt"
+      />
     </div>
   );
 }
