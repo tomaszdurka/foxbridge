@@ -28,7 +28,7 @@ export default function WorkspaceDetailView({ workspace }) {
   const runs = workspace.runs ?? [];
   const availableFiles = ['AGENTS.md', 'SPECIFICATION.md', 'CHANGELOG.md'];
 
-  // Extract unique sessions from runs
+  // Extract unique sessions from runs with status
   const sessions = useMemo(() => {
     const sessionMap = new Map();
     runs.forEach((run) => {
@@ -38,18 +38,35 @@ export default function WorkspaceDetailView({ workspace }) {
           sessionMap.set(sid, {
             sessionId: sid,
             lastUsed: run.startedAt,
-            runCount: 0
+            runCount: 0,
+            runs: []
           });
         }
         sessionMap.get(sid).runCount++;
+        sessionMap.get(sid).runs.push(run);
         const lastUsed = sessionMap.get(sid).lastUsed;
         if (Date.parse(run.startedAt) > Date.parse(lastUsed)) {
           sessionMap.get(sid).lastUsed = run.startedAt;
         }
       }
     });
-    return Array.from(sessionMap.values()).sort(
-      (a, b) => (Date.parse(b.lastUsed ?? '') || 0) - (Date.parse(a.lastUsed ?? '') || 0)
+
+    // Compute status for each session
+    return Array.from(sessionMap.values()).map(session => {
+      const sessionRuns = session.runs;
+      let status = 'success';
+
+      if (sessionRuns.some(r => r.status === 'running')) {
+        status = 'running';
+      } else if (sessionRuns.some(r => r.status === 'failure')) {
+        status = 'failure';
+      } else if (sessionRuns.some(r => r.status === 'stopped')) {
+        status = 'stopped';
+      }
+
+      return { ...session, status };
+    }).sort(
+      (a, b) => (Date.parse(a.lastUsed ?? '') || 0) - (Date.parse(b.lastUsed ?? '') || 0)
     );
   }, [runs]);
 
@@ -275,29 +292,44 @@ export default function WorkspaceDetailView({ workspace }) {
           <CardTitle className="text-base">Sessions ({sessions.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="grid gap-3 border-b bg-muted/40 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground lg:grid-cols-[minmax(0,2fr)_100px_190px]">
+          <div className="grid gap-3 border-b bg-muted/40 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground lg:grid-cols-[minmax(0,2fr)_110px_100px_190px]">
             <span>Session ID</span>
+            <span>Status</span>
             <span>Runs</span>
             <span>Last Activity</span>
           </div>
           <ul className="divide-y">
-            {sessions.map((session) => (
-              <li key={session.sessionId}>
-                <Link href={`/sessions/${session.sessionId}`} className="block px-4 py-4 transition hover:bg-muted/40">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_100px_190px]">
-                    <div className="min-w-0">
-                      <p className="truncate font-mono text-sm font-semibold">{session.sessionId}</p>
+            {sessions.map((session) => {
+              const statusClass =
+                session.status === 'success' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                session.status === 'running' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                session.status === 'failure' ? 'bg-rose-100 text-rose-900 border-rose-200' :
+                session.status === 'stopped' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                'bg-slate-100 text-slate-700 border-slate-200';
+
+              return (
+                <li key={session.sessionId}>
+                  <Link href={`/sessions/${session.sessionId}`} className="block px-4 py-4 transition hover:bg-muted/40">
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_110px_100px_190px]">
+                      <div className="min-w-0">
+                        <p className="truncate font-mono text-sm font-semibold">{session.sessionId}</p>
+                      </div>
+                      <div className="text-sm">
+                        <Badge variant="outline" className={statusClass}>
+                          {session.status}
+                        </Badge>
+                      </div>
+                      <div className="text-sm">
+                        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                          {session.runCount} run{session.runCount !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{session.lastUsed}</div>
                     </div>
-                    <div className="text-sm">
-                      <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-                        {session.runCount} run{session.runCount !== 1 ? 's' : ''}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">{session.lastUsed}</div>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                  </Link>
+                </li>
+              );
+            })}
             {sessions.length === 0 ? (
               <li className="p-10 text-center text-sm text-muted-foreground">
                 No sessions in this workspace yet.

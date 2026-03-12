@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getWorkspace } from '@/lib/api';
 import WorkspaceDetailView from '@/components/workspaces/WorkspaceDetailView';
 
@@ -14,21 +13,11 @@ export default async function WorkspaceDetailPage({ params }) {
   }
 
   return (
-    <div className="ds-shell">
-      <header className="mb-6">
-        <div className="ds-label mb-2">FoxBridge</div>
-        <h1 className="ds-title">Workspace Detail</h1>
-        <div className="mt-3 flex items-center gap-4 text-sm">
-          <Link href="/workspaces" className="text-mint hover:underline">
-            ← Back to Workspaces
-          </Link>
-        </div>
-      </header>
-
+    <div className="container mx-auto max-w-7xl px-4 py-8">
       {error ? (
-        <div className="surface p-6">
-          <div className="text-rose font-semibold">Error loading workspace</div>
-          <div className="text-sm text-muted mt-2">{error}</div>
+        <div className="rounded-lg border bg-rose-50 p-6">
+          <div className="text-rose-900 font-semibold">Error loading workspace</div>
+          <div className="text-sm text-rose-700 mt-2">{error}</div>
         </div>
       ) : workspace ? (
         <WorkspaceDetailView workspace={workspace} />

@@ -3,6 +3,9 @@
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { BookmarkPlus, X, Copy } from 'lucide-react';
+import PromptLibraryDialog from '@/components/prompts/PromptLibraryDialog';
 
 export default function RunPromptDialog({
   open,
@@ -12,11 +15,13 @@ export default function RunPromptDialog({
   runs = [],
   submitButtonText = 'Run Prompt'
 }) {
-  const [runPrompt, setRunPrompt] = useState('');
+  const [selectedSavedPrompt, setSelectedSavedPrompt] = useState(null);
+  const [additionalPrompt, setAdditionalPrompt] = useState('');
   const [runSchema, setRunSchema] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [runError, setRunError] = useState(null);
   const [runSuccess, setRunSuccess] = useState(null);
+  const [showPromptLibrary, setShowPromptLibrary] = useState(false);
 
   // Determine last used model from runs (most recent run's model)
   const lastUsedModel = useMemo(() => {
@@ -28,8 +33,29 @@ export default function RunPromptDialog({
   const defaultModel = lastUsedModel || 'claude';
   const [runModel, setRunModel] = useState(defaultModel);
 
+  const handleSelectPrompt = (selectedPrompt) => {
+    setSelectedSavedPrompt(selectedPrompt);
+  };
+
+  const handleCopyPromptToTextarea = () => {
+    if (selectedSavedPrompt) {
+      const currentText = additionalPrompt.trim();
+      const promptText = selectedSavedPrompt.prompt.trim();
+      setAdditionalPrompt(currentText ? `${promptText}\n\n${currentText}` : promptText);
+      setSelectedSavedPrompt(null);
+    }
+  };
+
+  const handleRemoveSavedPrompt = () => {
+    setSelectedSavedPrompt(null);
+  };
+
   const handleSubmit = async () => {
-    if (!runPrompt.trim()) {
+    const finalPrompt = selectedSavedPrompt
+      ? (additionalPrompt.trim() ? `${selectedSavedPrompt.prompt}\n\n${additionalPrompt}` : selectedSavedPrompt.prompt)
+      : additionalPrompt;
+
+    if (!finalPrompt.trim()) {
       setRunError('Prompt is required');
       return;
     }
@@ -51,13 +77,14 @@ export default function RunPromptDialog({
       }
 
       const result = await onSubmit({
-        prompt: runPrompt,
+        prompt: finalPrompt,
         schema,
         model: runModel,
       });
 
       setRunSuccess(`Job queued successfully! Run ID: ${result.runId}`);
-      setRunPrompt('');
+      setSelectedSavedPrompt(null);
+      setAdditionalPrompt('');
       setRunSchema('');
 
       // Close dialog after 2 seconds
@@ -103,14 +130,47 @@ export default function RunPromptDialog({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Prompt <span className="text-rose-600">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium">
+                  {selectedSavedPrompt ? 'Additional Instructions' : 'Prompt'} <span className="text-rose-600">*</span>
+                </label>
+                <button
+                  onClick={() => setShowPromptLibrary(true)}
+                  className="text-xs text-mint hover:text-mint/80 flex items-center gap-1 transition"
+                  type="button"
+                >
+                  <BookmarkPlus className="h-3.5 w-3.5" />
+                  Browse Saved
+                </button>
+              </div>
+              {selectedSavedPrompt && (
+                <div className="mb-2 flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
+                  <Badge variant="outline" className="bg-mint/10 text-mint border-mint/20">
+                    {selectedSavedPrompt.name}
+                  </Badge>
+                  <button
+                    onClick={handleCopyPromptToTextarea}
+                    className="ml-auto p-1 text-slate-600 hover:text-slate-900 transition"
+                    title="Copy to textarea to edit"
+                    type="button"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={handleRemoveSavedPrompt}
+                    className="p-1 text-slate-600 hover:text-rose-600 transition"
+                    title="Remove saved prompt"
+                    type="button"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               <textarea
-                value={runPrompt}
-                onChange={(e) => setRunPrompt(e.target.value)}
-                placeholder="Enter your prompt here..."
-                className="w-full min-h-[120px] rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
+                value={additionalPrompt}
+                onChange={(e) => setAdditionalPrompt(e.target.value)}
+                placeholder={selectedSavedPrompt ? "Add additional instructions (optional)..." : "Enter your prompt here..."}
+                className={`w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y ${selectedSavedPrompt ? 'min-h-[120px]' : 'min-h-[240px]'}`}
                 disabled={isSubmitting}
               />
             </div>
@@ -146,7 +206,7 @@ export default function RunPromptDialog({
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || !runPrompt.trim()}
+                disabled={isSubmitting || (!selectedSavedPrompt && !additionalPrompt.trim())}
               >
                 {isSubmitting ? 'Queuing...' : submitButtonText}
               </Button>
@@ -154,6 +214,11 @@ export default function RunPromptDialog({
           </div>
         </DialogBody>
       </DialogContent>
+      <PromptLibraryDialog
+        open={showPromptLibrary}
+        onOpenChange={setShowPromptLibrary}
+        onSelectPrompt={handleSelectPrompt}
+      />
     </Dialog>
   );
 }

@@ -40,7 +40,7 @@ export default function SessionDetailView({ session }) {
   const [showRunDialog, setShowRunDialog] = useState(false);
   const runs = session.runs ?? [];
   const sorted = [...runs].sort(
-    (a, b) => (Date.parse(b.startedAt ?? '') || 0) - (Date.parse(a.startedAt ?? '') || 0)
+    (a, b) => (Date.parse(a.startedAt ?? '') || 0) - (Date.parse(b.startedAt ?? '') || 0)
   );
 
   const handleRunSubmit = async ({ prompt, schema, model }) => {

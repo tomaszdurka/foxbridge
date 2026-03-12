@@ -52,3 +52,33 @@ export async function listSessions() {
 export async function getSession(sessionId) {
   return request(`/sessions/${sessionId}`);
 }
+
+export async function listPrompts() {
+  return request('/prompts');
+}
+
+export async function getPrompt(promptId) {
+  return request(`/prompts/${promptId}`);
+}
+
+export async function createPrompt(data) {
+  return request('/prompts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function updatePrompt(promptId, data) {
+  return request(`/prompts/${promptId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function deletePrompt(promptId) {
+  return request(`/prompts/${promptId}`, {
+    method: 'DELETE'
+  });
+}

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/core';
-import { RunStatus, Workspace, Session, Run, RunEvent } from './entities';
+import { RunStatus, Workspace, Session, Run, RunEvent, Prompt } from './entities';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from "node:fs";
 
@@ -231,5 +231,77 @@ export class PersistenceService {
       this.logger.error('Failed to stop running runs:', error);
       return 0;
     }
+  }
+
+  /**
+   * Create a prompt
+   */
+  async createPrompt(payload: {
+    name: string;
+    description?: string;
+    prompt: string;
+  }): Promise<Prompt> {
+    const promptId = uuidv4();
+    const prompt = this.em.create(Prompt, {
+      promptId,
+      name: payload.name,
+      description: payload.description,
+      prompt: payload.prompt,
+    });
+    this.em.persist(prompt);
+    await this.em.flush();
+    return prompt;
+  }
+
+  /**
+   * Get all prompts
+   */
+  async findAllPrompts(): Promise<Prompt[]> {
+    return this.em.find(Prompt, {}, { orderBy: { createdAt: 'DESC' } });
+  }
+
+  /**
+   * Get a prompt by ID
+   */
+  async getPrompt(payload: { promptId: string }): Promise<Prompt | null> {
+    return this.em.findOne(Prompt, { promptId: payload.promptId });
+  }
+
+  /**
+   * Update a prompt
+   */
+  async updatePrompt(payload: {
+    promptId: string;
+    name?: string;
+    description?: string | null;
+    prompt?: string;
+  }): Promise<Prompt | null> {
+    const prompt = await this.em.findOne(Prompt, { promptId: payload.promptId });
+    if (!prompt) return null;
+
+    if (payload.name !== undefined) {
+      prompt.name = payload.name;
+    }
+    if (payload.description !== undefined) {
+      prompt.description = payload.description ?? undefined;
+    }
+    if (payload.prompt !== undefined) {
+      prompt.prompt = payload.prompt;
+    }
+
+    await this.em.flush();
+    return prompt;
+  }
+
+  /**
+   * Delete a prompt
+   */
+  async deletePrompt(payload: { promptId: string }): Promise<boolean> {
+    const prompt = await this.em.findOne(Prompt, { promptId: payload.promptId });
+    if (!prompt) return false;
+
+    this.em.remove(prompt);
+    await this.em.flush();
+    return true;
   }
 }
