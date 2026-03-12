@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
-    "start": "pnpm -r --parallel start",
-    "install": "pnpm install"
+    "start": "pnpm -r --parallel start"
   },
   "keywords": [
     "claude",

@@ -4,8 +4,8 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { BookmarkPlus, X, Copy } from 'lucide-react';
-import PromptLibraryDialog from '@/components/prompts/PromptLibraryDialog';
+import { X, Copy } from 'lucide-react';
+import PromptSelector from '@/components/prompts/PromptSelector';
 
 export default function RunPromptDialog({
   open,
@@ -21,7 +21,6 @@ export default function RunPromptDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [runError, setRunError] = useState(null);
   const [runSuccess, setRunSuccess] = useState(null);
-  const [showPromptLibrary, setShowPromptLibrary] = useState(false);
 
   // Determine last used model from runs (most recent run's model)
   const lastUsedModel = useMemo(() => {
@@ -134,14 +133,7 @@ export default function RunPromptDialog({
                 <label className="block text-sm font-medium">
                   {selectedSavedPrompt ? 'Additional Instructions' : 'Prompt'} <span className="text-rose-600">*</span>
                 </label>
-                <button
-                  onClick={() => setShowPromptLibrary(true)}
-                  className="text-xs text-mint hover:text-mint/80 flex items-center gap-1 transition"
-                  type="button"
-                >
-                  <BookmarkPlus className="h-3.5 w-3.5" />
-                  Browse Saved
-                </button>
+                <PromptSelector onSelect={handleSelectPrompt} />
               </div>
               {selectedSavedPrompt && (
                 <div className="mb-2 flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
@@ -170,7 +162,7 @@ export default function RunPromptDialog({
                 value={additionalPrompt}
                 onChange={(e) => setAdditionalPrompt(e.target.value)}
                 placeholder={selectedSavedPrompt ? "Add additional instructions (optional)..." : "Enter your prompt here..."}
-                className={`w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y ${selectedSavedPrompt ? 'min-h-[120px]' : 'min-h-[240px]'}`}
+                className={`w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y ${selectedSavedPrompt ? 'min-h-[120px] max-h-[60vh]' : 'min-h-[240px] max-h-[60vh]'}`}
                 disabled={isSubmitting}
               />
             </div>
@@ -214,11 +206,6 @@ export default function RunPromptDialog({
           </div>
         </DialogBody>
       </DialogContent>
-      <PromptLibraryDialog
-        open={showPromptLibrary}
-        onOpenChange={setShowPromptLibrary}
-        onSelectPrompt={handleSelectPrompt}
-      />
     </Dialog>
   );
 }
