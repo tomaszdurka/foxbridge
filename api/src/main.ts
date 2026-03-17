@@ -30,8 +30,8 @@ async function bootstrap() {
 
   // Setup Swagger
   const config = new DocumentBuilder()
-    .setTitle('FoxBridge API')
-    .setDescription('REST API bridge to Claude CLI with workspace isolation and persistence')
+    .setTitle('UnoComputer API')
+    .setDescription('REST API for Claude CLI with workspace isolation and persistence')
     .setVersion('1.0')
     .addTag('runs', 'Claude run execution and querying')
     .addTag('workspaces', 'Workspace management and querying')
@@ -40,7 +40,7 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   // Ensure data directory exists and update schema
-  const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'foxbridge.db');
+  const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'uno-computer.db');
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
   const orm = app.get(MikroORM);

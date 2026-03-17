@@ -17,9 +17,9 @@ function formatElapsed(ms) {
 function elapsedForRun(run) {
   const started = Date.parse(run.startedAt ?? '');
   if (!started) return '-';
-  const completed = run.completedAt ? Date.parse(run.completedAt) : null;
-  const endTs = completed || Date.now();
-  return formatElapsed(endTs - started);
+  if (!run.completedAt) return 'running...';
+  const completed = Date.parse(run.completedAt);
+  return formatElapsed(completed - started);
 }
 
 function statusBadgeClass(status) {

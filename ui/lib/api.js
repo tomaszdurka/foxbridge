@@ -1,4 +1,4 @@
-const BASE_URL = process.env.FOXBRIDGE_API_URL ?? 'http://localhost:3100';
+const BASE_URL = process.env.API_URL ?? 'http://localhost:3100';
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {

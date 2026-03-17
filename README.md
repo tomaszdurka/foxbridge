@@ -1,8 +1,8 @@
-# FoxBridge 🦊
+# UnoComputer 🎯
 
-> Local Model API - Bridge to Claude CLI with workspace isolation
+> Local Model API with Claude CLI integration and workspace isolation
 
-**FoxBridge** is a TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output.
+**UnoComputer** is a TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output.
 
 ## Features
 
@@ -17,14 +17,14 @@
 
 ## ⚠️ Disclaimer
 
-**USE AT YOUR OWN RISK.** FoxBridge executes Claude CLI commands programmatically and can run arbitrary code within isolated workspaces.
+**USE AT YOUR OWN RISK.** UnoComputer executes Claude CLI commands programmatically and can run arbitrary code within isolated workspaces.
 
 - **Security**: Exposing this API to untrusted networks or users can pose significant security risks
-- **Responsibility**: You are solely responsible for securing, monitoring, and managing any deployment of FoxBridge
+- **Responsibility**: You are solely responsible for securing, monitoring, and managing any deployment of UnoComputer
 - **No Warranty**: This software is provided "as is" without warranty of any kind
 - **Production Use**: Implement proper authentication, rate limiting, input validation, and network security before any production deployment
 
-By using FoxBridge, you acknowledge and accept these risks and responsibilities.
+By using UnoComputer, you acknowledge and accept these risks and responsibilities.
 
 ## Quick Start
 
@@ -76,7 +76,7 @@ curl -X POST http://localhost:3100/runs/claude \
 
 ## Dashboard UI
 
-FoxBridge includes a Next.js 16 dashboard for visual management:
+UnoComputer includes a Next.js 16 dashboard for visual management:
 
 - **Runs** - View all Claude CLI executions with status, results, and logs
 - **Workspaces** - Manage isolated project environments

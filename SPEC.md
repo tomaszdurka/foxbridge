@@ -1,8 +1,8 @@
-# FoxBridge - Project Specification
+# UnoComputer - Project Specification
 
 ## Overview
 
-**FoxBridge** is a TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output. The system includes SQLite persistence for tracking runs, sessions, and workspaces, plus a Next.js 16 dashboard UI for visual management. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
+**UnoComputer** is a TypeScript + NestJS API server that enables programmatic execution of Claude CLI commands with structured JSON output. The system includes SQLite persistence for tracking runs, sessions, and workspaces, plus a Next.js 16 dashboard UI for visual management. The API supports both buffered (single response) and streaming (JSONL) modes, determined by the `Accept` header.
 
 ## Core Requirements
 
@@ -397,7 +397,7 @@ claude --continue -p "What is 2+2?" --output-format stream-json --verbose --perm
 ## Dashboard UI
 
 ### Overview
-FoxBridge includes a Next.js 16 dashboard built with Turbopack for fast development and modern UI components using shadcn/ui.
+UnoComputer includes a Next.js 16 dashboard built with Turbopack for fast development and modern UI components using shadcn/ui.
 
 ### Features
 - **Runs Dashboard** - View all Claude CLI executions with real-time status updates

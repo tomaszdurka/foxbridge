@@ -1,7 +1,7 @@
 {
-  "name": "foxbridge",
+  "name": "uno-computer-api",
   "version": "1.0.0",
-  "description": "Local Model API - Bridge to Claude CLI with workspace isolation",
+  "description": "UnoComputer API - Local Model API with workspace isolation",
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",

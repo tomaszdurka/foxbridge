@@ -1,8 +1,8 @@
-# FoxBridge - Agent Development Guide
+# UnoComputer - Agent Development Guide
 
 ## Project Overview
 
-**FoxBridge** is a NestJS-based REST API that acts as a bridge between HTTP clients and the Claude CLI. It enables programmatic execution of Claude CLI commands with workspace isolation, streaming support, and structured JSON output.
+**UnoComputer** is a NestJS-based REST API that acts as a bridge between HTTP clients and the Claude CLI. It enables programmatic execution of Claude CLI commands with workspace isolation, streaming support, and structured JSON output.
 
 ### Core Concept
 

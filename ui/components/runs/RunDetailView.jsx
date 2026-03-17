@@ -25,9 +25,9 @@ function formatElapsed(ms) {
 function elapsedForRun(run) {
   const started = Date.parse(run?.startedAt ?? '');
   if (!started) return '-';
-  const completed = run?.completedAt ? Date.parse(run.completedAt) : null;
-  const endTs = completed || Date.now();
-  return formatElapsed(endTs - started);
+  if (!run?.completedAt) return 'running...';
+  const completed = Date.parse(run.completedAt);
+  return formatElapsed(completed - started);
 }
 
 function statusBadgeClass(status) {
@@ -182,7 +182,25 @@ export default function RunDetailView({ run }) {
             <span className="grid-label">Completed:</span>{' '}
             <span className="ml-2 text-muted-foreground">{run.completedAt ?? '-'}</span>
           </p>
-          <Separator />
+          {run.outputSchema ? (
+            <>
+              <Separator />
+              <div>
+                <p className="grid-label mb-2">Output Schema</p>
+                <pre className="overflow-x-auto rounded-lg bg-muted/50 p-3 text-xs">
+                  {JSON.stringify(run.outputSchema, null, 2)}
+                </pre>
+              </div>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-3">
+        <CardHeader>
+          <CardTitle className="text-base">Prompt & Result</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div>
             <p className="grid-label mb-2">Prompt</p>
             <div className="relative">
@@ -211,22 +229,6 @@ export default function RunDetailView({ run }) {
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card className="lg:col-span-3">
-        <CardHeader>
-          <CardTitle className="text-base">Result & Schema</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {run.outputSchema ? (
-            <div>
-              <p className="grid-label mb-2">Output Schema</p>
-              <pre className="overflow-x-auto rounded-lg bg-muted/50 p-3 text-xs">
-                {JSON.stringify(run.outputSchema, null, 2)}
-              </pre>
-            </div>
-          ) : null}
           {run.result ? (
             <div>
               <p className="grid-label mb-2">Result</p>
@@ -234,10 +236,9 @@ export default function RunDetailView({ run }) {
                 {JSON.stringify(run.result, null, 2)}
               </pre>
             </div>
-          ) : null}
-          {!run.outputSchema && !run.result ? (
-            <p className="text-sm text-muted-foreground">No result or schema available.</p>
-          ) : null}
+          ) : (
+            <p className="text-sm text-muted-foreground">No result available.</p>
+          )}
         </CardContent>
       </Card>
 

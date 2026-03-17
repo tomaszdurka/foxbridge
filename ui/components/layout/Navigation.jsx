@@ -39,7 +39,7 @@ export default function Navigation() {
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-8">
               <Link href="/" className="text-xl font-bold text-slate-900">
-                FoxBridge
+                UnoComputer
               </Link>
               <div className="flex gap-1">
                 {navLinks.map((link) => (

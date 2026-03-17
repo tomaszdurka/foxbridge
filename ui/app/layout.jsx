@@ -5,8 +5,8 @@ import Navigation from '@/components/layout/Navigation';
 const grotesk = Space_Grotesk({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'FoxBridge',
-  description: 'FoxBridge Dashboard - Workspaces and Runs'
+  title: 'UnoComputer',
+  description: 'UnoComputer Dashboard - Workspaces and Runs'
 };
 
 export default function RootLayout({ children }) {
